@@ -81,7 +81,7 @@ surface (SSE + approval endpoint), then graded on trajectory *and* database stat
 | --- | --- |
 | Task success rate (`pass^1`) | **100.0 %** (75/75) |
 | `pass^3` (succeeded on every trial) | **100.0 %** (25/25) |
-| Turn latency p50 / p95 | 61.9 ms / 88.5 ms |
+| Turn latency p50 / p95 | 76.4 ms / 94.8 ms |
 | Categories | read 7 · write 3 · multi-step 2 · isolation/safety 6 · guardrails 6 · ambiguity 1 |
 
 A trial only passes when **all** of these hold: the expected HTTP/error outcome occurred, the

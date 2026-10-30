@@ -1,12 +1,9 @@
 # Agent evaluation report
 
-Generated: `2026-10-30T17:07:26+00:00`
-Commit: `4859891b4c9c4ab88563bbdd5469abee39bb332d`
+Generated: `2026-10-30T17:08:38+00:00`
+Commit: `f3e43f53bd46dbd9344b1a60e6641360897496ea`
 Scenario file hash: `7f525392371cb6b1…`
 Mode: `offline` · Model: `scripted replay`
-
-> **Warning:** the worktree had uncommitted changes during this run.
-> Numbers from this report must not be quoted until the config is committed.
 
 ## Headline
 
@@ -16,7 +13,7 @@ Mode: `offline` · Model: `scripted replay`
 | `pass^3` | **100.0%** | scenarios that succeeded on every trial |
 | Scenarios | 25 | graded multi-step tasks |
 | Trial runs | 75 | scenario × trials |
-| Turn latency p50 / p95 | 68.2 ms / 98.7 ms | per user message |
+| Turn latency p50 / p95 | 76.4 ms / 94.8 ms | per user message |
 
 ## By category
 

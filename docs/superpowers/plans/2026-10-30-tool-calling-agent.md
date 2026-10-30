@@ -281,7 +281,7 @@ only do what a user could do through the API.
 - [x] `--fail-under` turns the suite into a CI gate.
 
 **Measured result:** 25 scenarios × 3 trials = 75 runs, `pass^1 = 100 %`, `pass^3 = 100 %`,
-p50 61.9 ms / p95 88.5 ms (scripted replay, no provider latency).
+p50 76.4 ms / p95 94.8 ms (scripted replay, no provider latency).
 
 **Milestone:** `python scripts/evaluate.py --trials 3` exits 0 and writes
 `evals/report/report.{md,json}`.
