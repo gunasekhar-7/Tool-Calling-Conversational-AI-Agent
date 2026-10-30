@@ -99,6 +99,36 @@ async def test_tool_calls_are_capped() -> None:
     assert state["tool_calls"] <= 3
 
 
+async def test_answer_after_the_cap_is_returned() -> None:
+    model = ScriptedChatModel(
+        responses=[
+            tool_call("get_order_status", {"order_id": "ORD-1001"}, "c1"),
+            tool_call("get_order_status", {"order_id": "ORD-1002"}, "c2"),
+            tool_call("get_order_status", {"order_id": "ORD-1003"}, "c3"),
+            AIMessage(content="Here is the summary."),
+        ]
+    )
+    state = await _run(_graph(model, max_tool_calls=2))
+    # The cap ends the tool loop, not the conversation: the model gets one
+    # tool-free turn so a completed investigation is not replaced by an apology.
+    assert state["messages"][-1].content == "Here is the summary."
+    assert state["limit_reached"] is True
+    assert "stopped after several" not in state["messages"][-1].content
+
+
+async def test_cap_without_a_usable_answer_falls_back() -> None:
+    model = ScriptedChatModel(
+        responses=[
+            tool_call("get_order_status", {"order_id": "ORD-1001"}, "c1"),
+            tool_call("get_order_status", {"order_id": "ORD-1002"}, "c2"),
+            tool_call("get_order_status", {"order_id": "ORD-1003"}, "c3"),
+            AIMessage(content=""),
+        ]
+    )
+    state = await _run(_graph(model, max_tool_calls=1))
+    assert "stopped after several" in state["messages"][-1].content
+
+
 async def test_system_prompt_is_prepended() -> None:
     model = ScriptedChatModel(responses=[AIMessage(content="hi")])
     await _run(_graph(model))

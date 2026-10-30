@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
+from uuid import UUID
 
 from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -23,7 +24,9 @@ class Settings(BaseSettings):
     llm_model: str | None = None
     llm_temperature: float = 0.0
 
-    demo_api_key: str = Field(min_length=4)
+    # token -> customer. One key per customer: there is no master key that can read
+    # another account's data, so a leaked token is a single-tenant incident.
+    customer_api_keys: dict[str, UUID] = Field(min_length=1)
     max_tool_calls: int = Field(default=8, ge=1, le=32)
     approval_ttl_seconds: int = Field(default=900, ge=1)
     max_message_chars: int = Field(default=2000, ge=1)
@@ -57,6 +60,14 @@ class Settings(BaseSettings):
         """LangGraph's saver wants a libpq DSN, not a SQLAlchemy URL."""
         raw = self.checkpoint_dsn or self.database_url
         return raw.replace("postgresql+psycopg://", "postgresql://")
+
+    @property
+    def tokens_by_customer(self) -> dict[UUID, str]:
+        """Reverse index for callers that act as a known customer (eval, seeds)."""
+        return {customer: token for token, customer in self.customer_api_keys.items()}
+
+    def token_for(self, customer_id: UUID) -> str | None:
+        return self.tokens_by_customer.get(customer_id)
 
     @property
     def has_model_credentials(self) -> bool:

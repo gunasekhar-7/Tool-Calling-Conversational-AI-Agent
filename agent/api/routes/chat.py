@@ -6,15 +6,15 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 
 from agent.agent.guardrails.input_guard import screen_input
-from agent.api.deps import get_runtime, get_settings, require_api_key
+from agent.api.deps import Principal, get_runtime, get_settings, require_principal
 from agent.api.sse import with_keepalive
 from agent.config import Settings
-from agent.errors import InvalidInput, PolicyDenied, RateLimited
+from agent.errors import InvalidInput, ModelUnavailable, PolicyDenied, RateLimited
 from agent.logging import request_id_var
 from agent.runtime import AgentRuntime
 from agent.schemas import MessageRequest
 
-router = APIRouter(dependencies=[Depends(require_api_key)])
+router = APIRouter()
 
 
 @router.post("/v1/sessions/{session_id}/messages")
@@ -22,15 +22,15 @@ async def send_message(
     request: Request,
     session_id: UUID,
     body: MessageRequest,
+    principal: Principal = Depends(require_principal),
 ) -> StreamingResponse:
     settings: Settings = get_settings(request)
     runtime: AgentRuntime = get_runtime(request)
 
-    await runtime.ensure_session(session_id)
+    await runtime.ensure_session(session_id, customer_id=principal.customer_id)
+    await runtime.assert_no_pending_approval(session_id)
 
     if runtime.model is None:
-        from agent.errors import ModelUnavailable
-
         raise ModelUnavailable("LLM_MODEL and OPENAI_API_KEY must be configured")
 
     screen = screen_input(body.message, settings.max_message_chars)
@@ -49,6 +49,7 @@ async def send_message(
             session_id=session_id,
             message=screen.sanitized,
             request_id=request_id_var.get() or "-",
+            customer_id=principal.customer_id,
         ),
         interval=settings.sse_keepalive_seconds,
     )

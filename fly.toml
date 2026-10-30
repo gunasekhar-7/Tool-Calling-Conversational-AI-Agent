@@ -1,8 +1,8 @@
 # API deployment. The dashboard ships separately (Fly, Streamlit Community Cloud,
-# or any container host) and only needs API_BASE + DEMO_API_KEY.
+# or any container host) and only needs API_BASE + CUSTOMER_TOKENS.
 #
 #   fly launch --no-deploy --copy-config --name order-agent-demo
-#   fly secrets set DATABASE_URL=... CHECKPOINT_DSN=... DEMO_API_KEY=... \
+#   fly secrets set DATABASE_URL=... CHECKPOINT_DSN=... CUSTOMER_API_KEYS=... \
 #                   OPENAI_API_KEY=... LLM_MODEL=...
 #   fly deploy
 app = "order-agent-demo"

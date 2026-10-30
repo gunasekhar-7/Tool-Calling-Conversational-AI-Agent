@@ -194,6 +194,22 @@ class PendingActionRepo:
             return existing
         return action
 
+    async def find_open(
+        self, session_id: uuid.UUID, now: datetime | None = None
+    ) -> PendingAction | None:
+        """The live staged write for a session, if one is still awaiting a human."""
+        moment = now or datetime.now(UTC)
+        return await self.session.scalar(
+            select(PendingAction)
+            .where(
+                PendingAction.session_id == session_id,
+                PendingAction.status == "proposed",
+                PendingAction.expires_at > moment,
+            )
+            .order_by(PendingAction.created_at.desc())
+            .limit(1)
+        )
+
     async def get_for_session(self, pending_id: uuid.UUID, session_id: uuid.UUID) -> PendingAction:
         action = await self.session.scalar(
             select(PendingAction).where(
@@ -244,7 +260,8 @@ class PendingActionRepo:
         if action.status == "expired" or action.expires_at <= moment:
             if action.status != "expired":
                 action.status = "expired"
-                await self.session.commit()
+                action.decided_at = moment
+                await self.session.flush()
             raise ApprovalExpired("this approval has expired")
 
         if not hmac.compare_digest(preview_hash, action.args_hash):
@@ -254,25 +271,27 @@ class PendingActionRepo:
             action.status = "rejected"
             action.decided_at = moment
             action.consume_key = consume_key
-            await self.session.commit()
+            await self.session.flush()
             return ExecutionResult(status="rejected", ticket_id=None)
 
-        ticket = await TicketsRepo(self.session).create(
-            customer_id=action.customer_id,
-            order_id=action.args.get("order_id"),
-            subject=action.args["subject"],
-            body=action.args["body"],
-            priority=action.args.get("priority", "normal"),
-            pending_action_id=action.id,
-        )
-        action.status = "executed"
-        action.decided_at = moment
-        action.consume_key = consume_key
-        action.result = {"ticket_id": ticket.id}
+        # The write and the state transition share one transaction that this method
+        # flushes but does not commit: the request boundary commits once, so a failure
+        # after the INSERT cannot leave a ticket behind with the action still pending.
         try:
-            await self.session.commit()
+            async with self.session.begin_nested():
+                ticket = await TicketsRepo(self.session).create(
+                    customer_id=action.customer_id,
+                    order_id=action.args.get("order_id"),
+                    subject=action.args["subject"],
+                    body=action.args["body"],
+                    priority=action.args.get("priority", "normal"),
+                    pending_action_id=action.id,
+                )
+                action.status = "executed"
+                action.decided_at = moment
+                action.consume_key = consume_key
+                action.result = {"ticket_id": ticket.id}
         except IntegrityError as exc:
-            await self.session.rollback()
             raise Conflict("this action was already executed") from exc
         return ExecutionResult(status="executed", ticket_id=ticket.id)
 

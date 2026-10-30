@@ -173,6 +173,41 @@ async def test_expired_approval_is_refused(db) -> None:
     assert action.status == "expired"
 
 
+async def test_decision_one_second_before_the_deadline_executes(db) -> None:
+    session = await _session(db)
+    action = await _stage(db, session.id, key="boundary-ok", ttl=60)
+    await db.commit()
+    result = await PendingActionRepo(db).consume(
+        pending_id=action.id,
+        session_id=session.id,
+        decision="approve",
+        consume_key="boundary-ok-key",
+        preview_hash=action.args_hash,
+        now=action.expires_at - timedelta(seconds=1),
+    )
+    assert result.status == "executed"
+
+
+async def test_decision_exactly_at_the_deadline_is_expired(db) -> None:
+    session = await _session(db)
+    action = await _stage(db, session.id, key="boundary-late", ttl=60)
+    await db.commit()
+    with pytest.raises(ApprovalExpired):
+        await PendingActionRepo(db).consume(
+            pending_id=action.id,
+            session_id=session.id,
+            decision="approve",
+            consume_key="boundary-late-key",
+            preview_hash=action.args_hash,
+            now=action.expires_at,
+        )
+    await db.commit()
+    refreshed = await db.scalar(select(PendingAction).where(PendingAction.id == action.id))
+    assert refreshed is not None
+    assert refreshed.status == "expired"
+    assert await db.scalar(select(func.count()).select_from(Ticket)) == 2
+
+
 async def test_changed_preview_hash_is_refused(db) -> None:
     session = await _session(db)
     action = await _stage(db, session.id)
@@ -222,6 +257,9 @@ async def test_concurrent_approvals_create_one_ticket(factory) -> None:
                 consume_key=key,
                 preview_hash=args_hash,
             )
+            # The repository flushes; the request boundary commits. Two separate
+            # connections only serialize once the first one actually commits.
+            await own.commit()
             return result.ticket_id or ""
 
     first, second = await asyncio.gather(approve("concurrent-key"), approve("concurrent-key"))

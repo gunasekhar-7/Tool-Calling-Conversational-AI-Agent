@@ -253,7 +253,12 @@ async def run_trial(
     before_own = await _ticket_ids(factory, scenario.customer)
 
     app = create_app(settings, model=model, checkpointer=InMemorySaver())
-    headers = {"Authorization": f"Bearer {settings.demo_api_key}"}
+    token = settings.token_for(scenario.customer)
+    if token is None:
+        raise SystemExit(
+            f"CUSTOMER_API_KEYS has no token for scenario customer {scenario.customer}"
+        )
+    headers = {"Authorization": f"Bearer {token}"}
     outcomes: list[TurnOutcome] = []
 
     async with app.router.lifespan_context(app):
@@ -261,9 +266,7 @@ async def run_trial(
         async with httpx.AsyncClient(
             transport=transport, base_url="http://eval", timeout=60
         ) as client:
-            created = await client.post(
-                "/v1/sessions", json={"customer_id": str(scenario.customer)}, headers=headers
-            )
+            created = await client.post("/v1/sessions", headers=headers)
             if created.status_code != 201:
                 return TrialResult(
                     scenario_id=scenario.id,

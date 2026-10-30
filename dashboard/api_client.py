@@ -100,9 +100,14 @@ class AgentAPI:
                 raise self._error(response)
             return list(response.json())
 
-    def create_session(self, customer_id: str) -> str:
+    def create_session(self) -> str:
+        """Start a conversation as whoever this token authenticates.
+
+        No body is sent: the API derives the customer from the bearer token, so a
+        client cannot ask for someone else's data.
+        """
         with self._client() as client:
-            response = client.post("/v1/sessions", json={"customer_id": customer_id})
+            response = client.post("/v1/sessions")
             if response.status_code != 201:
                 raise self._error(response)
             return str(response.json()["session_id"])

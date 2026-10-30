@@ -17,6 +17,27 @@ from agent.tools.context import ToolContext
 
 logger = logging.getLogger(__name__)
 
+LIMIT_NOTE = (
+    "\n\nYou have used the tool budget for this turn. Answer now, using only the tool "
+    "results already in this conversation. Do not request another lookup. If the results "
+    "are not enough, say what is missing and ask the customer to narrow the request."
+)
+LIMIT_FALLBACK = (
+    "I stopped after several tool lookups without reaching an answer. "
+    "Could you narrow the request to one order or one issue?"
+)
+
+
+def _message_text(message: Any) -> str:
+    content = getattr(message, "content", "")
+    if isinstance(content, str):
+        return content.strip()
+    parts: list[str] = []
+    for block in content or []:
+        if isinstance(block, dict) and block.get("type") == "text":
+            parts.append(str(block.get("text", "")))
+    return "".join(parts).strip()
+
 
 def _handle_tool_error(exc: Exception) -> str:
     logger.warning("tool_error", extra={"extra_fields": {"error": type(exc).__name__}})
@@ -59,26 +80,32 @@ def build_graph(
     def route_after_agent(state: AgentState) -> str:
         last = state["messages"][-1]
         calls = list(getattr(last, "tool_calls", None) or [])
-        if state.get("tool_calls", 0) > max_tool_calls:
-            return "limit"
+        # A plain answer is the goal state even when earlier turns spent the budget;
+        # discarding it would replace a correct reply with a canned apology.
         if not calls:
             return END
+        if state.get("tool_calls", 0) > max_tool_calls:
+            return "limit"
         if any(call["name"] in WRITE_TOOL_NAMES for call in calls):
             return "write"
         return "tools"
 
     async def limit_node(state: AgentState) -> dict[str, Any]:
-        return {
-            "messages": [
-                AIMessage(
-                    content=(
-                        "I stopped after several tool lookups without reaching an answer. "
-                        "Could you narrow the request to one order or one issue?"
-                    )
-                )
-            ],
-            "limit_reached": True,
-        }
+        """Stop the tool loop without throwing away what the model already knows.
+
+        One tool-free turn is the difference between "here is the summary I could "
+        "have given" and a canned apology after a successful investigation.
+        """
+        answer = ""
+        if model is not None:
+            messages = [SystemMessage(content=SYSTEM_PROMPT + LIMIT_NOTE)] + list(state["messages"])
+            try:
+                answer = _message_text(await model.ainvoke(messages))
+            except Exception:
+                logger.exception("limit_answer_failed")
+        if not answer:
+            answer = LIMIT_FALLBACK
+        return {"messages": [AIMessage(content=answer)], "limit_reached": True}
 
     write_node = make_write_node(ctx, ttl_seconds=approval_ttl_seconds)
 

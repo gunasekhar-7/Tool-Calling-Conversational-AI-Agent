@@ -6,6 +6,7 @@ approved here by a human, and the API remains the only thing that touches data.
 
 from __future__ import annotations
 
+import json
 import os
 import uuid
 from typing import Any
@@ -36,9 +37,28 @@ def _setting(name: str, default: str = "") -> str:
     return os.environ.get(name, default)
 
 
+def _keyring() -> dict[str, str]:
+    """label -> token, so the picker never shows a token to the person using it."""
+    raw = _setting("CUSTOMER_TOKENS")
+    if not raw:
+        return {}
+    try:
+        parsed = json.loads(raw)
+    except ValueError:
+        return {}
+    if not isinstance(parsed, dict):
+        return {}
+    return {str(label): str(token) for label, token in parsed.items()}
+
+
 def api() -> AgentAPI | None:
     base = st.session_state.get("api_base") or _setting("API_BASE", "http://127.0.0.1:8000")
-    key = st.session_state.get("api_key") or _setting("DEMO_API_KEY")
+    keyring = _keyring()
+    if keyring:
+        label = st.session_state.get("customer_label") or next(iter(keyring))
+        key = keyring.get(label, "")
+    else:
+        key = st.session_state.get("api_key") or os.environ.get("API_TOKEN", "")
     if not key:
         return None
     return AgentAPI(base, key)
@@ -225,17 +245,32 @@ st.markdown(
 with st.sidebar:
     st.markdown("### Connection")
     st.text_input("API base", key="api_base", value=_setting("API_BASE", "http://127.0.0.1:8000"))
-    st.text_input(
-        "Demo API key",
-        key="api_key",
-        value=_setting("DEMO_API_KEY"),
-        type="password",
-        help="Sent as a bearer token. Never leave this blank on a deployed instance.",
-    )
+
+    keyring = _keyring()
+    if keyring:
+        st.selectbox(
+            "Signed in as",
+            list(keyring),
+            key="customer_label",
+            help=(
+                "Each account has its own token. Switching accounts switches the data "
+                "the agent can see — it has no way to reach anyone else's."
+            ),
+        )
+    else:
+        st.text_input(
+            "API token",
+            key="api_key",
+            type="password",
+            help=(
+                "One token per customer. Set CUSTOMER_TOKENS to get an account picker "
+                "instead of pasting a token."
+            ),
+        )
 
     client = api()
     if client is None:
-        st.warning("Add the demo API key to start a conversation.")
+        st.warning("Add a customer token to start a conversation.")
         st.stop()
     assert client is not None  # st.stop() ends the run
 
@@ -250,9 +285,13 @@ with st.sidebar:
         st.error(f"Can't reach {st.session_state.api_base}: {exc}")
         st.stop()
 
-    names = {row["name"]: row["id"] for row in customers}
-    chosen = st.selectbox("Signed in as", list(names) or ["No customers seeded"])
-    st.caption("The agent only ever sees data for the customer selected here.")
+    if not customers:
+        st.error("This token isn't linked to a customer yet.")
+        st.stop()
+    me = customers[0]
+    chosen = str(me["name"])
+    st.caption(f"Account · {me.get('email', chosen)}")
+    st.caption("The agent only ever sees data for this account.")
 
     if st.button("New conversation", use_container_width=True):
         _reset_session()
@@ -268,13 +307,13 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-if chosen in names and st.session_state.get("customer_name") != chosen:
+if st.session_state.get("customer_name") != chosen:
     _reset_session()
     st.session_state.customer_name = chosen
 
-if not st.session_state.get("session_id") and chosen in names:
+if not st.session_state.get("session_id"):
     try:
-        st.session_state.session_id = client.create_session(names[chosen])
+        st.session_state.session_id = client.create_session()
     except ApiError as exc:
         st.error(f"Couldn't start a session: {exc.user_message()}")
         st.stop()
@@ -285,6 +324,7 @@ if error := st.session_state.get("turn_error"):
         "rate_limited": "Give it a moment, then send the message again.",
         "model_unavailable": "The model key isn't configured on the API.",
         "policy_denied": "Rephrase the request as a normal support question.",
+        "approval_pending": "Approve or reject the ticket below before asking something else.",
         "connection_failed": "Check that the API is running and the base URL is right.",
     }.get(code, "Try again — if it keeps failing, quote the request id.")
     st.error(f"{message} {hint}" + (f" (request {request_id})" if request_id else ""))

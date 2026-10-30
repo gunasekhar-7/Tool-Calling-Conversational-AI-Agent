@@ -44,6 +44,20 @@ class ApprovalMismatch(DomainError):
     http_status = 409
 
 
+class ApprovalPending(DomainError):
+    """A new message arrived while a staged write is waiting for a human."""
+
+    code = "approval_pending"
+    http_status = 409
+
+
+class WriteFailed(DomainError):
+    """The approved write could not be committed; nothing was created."""
+
+    code = "write_failed"
+    http_status = 500
+
+
 class RateLimited(DomainError):
     code = "rate_limited"
     http_status = 429

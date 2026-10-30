@@ -177,6 +177,78 @@ async def test_approval_from_another_session_is_not_found(app_client) -> None:
     assert response.status_code == 404
 
 
+async def test_message_while_approval_pending_is_refused(app_client, factory) -> None:
+    from agent.db.models import PendingAction
+
+    async with app_client(_writer_model()) as client:
+        proposal = await _propose(client)
+        response = await client.post(
+            f"/v1/sessions/{proposal['session_id']}/messages",
+            json={"message": "Actually, never mind."},
+            headers=AUTH,
+        )
+        async with factory() as db:
+            staged = await db.scalar(
+                select(func.count())
+                .select_from(PendingAction)
+                .where(PendingAction.session_id == uuid.UUID(proposal["session_id"]))
+            )
+
+        # The card is still the only way forward, and it still works.
+        approval = await client.post(
+            f"/v1/sessions/{proposal['session_id']}/approvals",
+            json={
+                "pending_action_id": proposal["pending_action_id"],
+                "decision": "approve",
+                "idempotency_key": "pending-key-0001",
+                "preview_hash": proposal["preview_hash"],
+            },
+            headers=AUTH,
+        )
+
+    assert response.status_code == 409
+    assert response.json()["code"] == "approval_pending"
+    assert staged == 1
+    assert approval.status_code == 200
+    assert approval.json()["status"] == "executed"
+
+
+async def test_failed_write_leaves_no_ticket_and_keeps_action_proposed(
+    app_client, factory, monkeypatch
+) -> None:
+    from agent.db.models import PendingAction
+    from agent.db.repositories import AuditRepo
+
+    async def boom(self, **kwargs):
+        raise RuntimeError("audit insert failed")
+
+    async with app_client(_writer_model()) as client:
+        proposal = await _propose(client)
+        before = await _ticket_count(factory)
+        monkeypatch.setattr(AuditRepo, "record", boom)
+        response = await client.post(
+            f"/v1/sessions/{proposal['session_id']}/approvals",
+            json={
+                "pending_action_id": proposal["pending_action_id"],
+                "decision": "approve",
+                "idempotency_key": "rollback-key-0001",
+                "preview_hash": proposal["preview_hash"],
+            },
+            headers=AUTH,
+        )
+        after = await _ticket_count(factory)
+        async with factory() as db:
+            row = await db.scalar(
+                select(PendingAction).where(
+                    PendingAction.id == uuid.UUID(proposal["pending_action_id"])
+                )
+            )
+
+    assert response.status_code == 500
+    assert after == before, "the ticket INSERT must roll back with the rest of the request"
+    assert row.status == "proposed", "a failed write must leave the action decidable"
+
+
 async def test_expired_approval_is_refused(app_client, factory) -> None:
     from datetime import UTC, datetime, timedelta
 

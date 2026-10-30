@@ -22,7 +22,7 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/pm
-      DEMO_API_KEY: ${DEMO_API_KEY:-change-me}
+      CUSTOMER_API_KEYS: ${CUSTOMER_API_KEYS:?set CUSTOMER_API_KEYS in .env}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       LLM_MODEL: ${LLM_MODEL:-}
       ENVIRONMENT: development
@@ -42,8 +42,7 @@ services:
       - api
     environment:
       API_BASE: http://api:8000
-      DEMO_API_KEY: ${DEMO_API_KEY:-change-me}
-      DEMO_CUSTOMER_ID: ${DEMO_CUSTOMER_ID:-}
+      CUSTOMER_TOKENS: ${CUSTOMER_TOKENS:-{}}
     ports:
       - "8501:8501"
 

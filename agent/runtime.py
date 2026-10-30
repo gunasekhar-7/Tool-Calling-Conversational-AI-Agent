@@ -21,8 +21,12 @@ from agent.db.repositories import AuditRepo, PendingActionRepo, ReceiptRepo, Ses
 from agent.errors import (
     ApprovalExpired,
     ApprovalMismatch,
+    ApprovalPending,
     Conflict,
+    DomainError,
     ModelUnavailable,
+    NotFound,
+    WriteFailed,
 )
 from agent.schemas import ApprovalResponse, TranscriptMessage
 from agent.tools import ALL_TOOL_SPECS, to_langchain_tools
@@ -85,12 +89,43 @@ class AgentRuntime:
         self.checkpointer = checkpointer
         self.session_factory = session_factory
 
-    async def ensure_session(self, session_id: UUID) -> None:
-        async with self.session_factory() as db:
-            await SessionRepo(db).get(session_id)
+    async def ensure_session(self, session_id: UUID, *, customer_id: UUID | None = None) -> None:
+        """Resolve the session and, when a caller is given, enforce ownership.
 
-    async def _context(self, db: AsyncSession, session_id: UUID, request_id: str) -> ToolContext:
+        A session that belongs to someone else is reported as missing, so the API
+        never confirms that another customer's session id exists.
+        """
+        async with self.session_factory() as db:
+            session = await SessionRepo(db).get(session_id)
+            if customer_id is not None and session.customer_id != customer_id:
+                raise NotFound("session not found")
+
+    async def assert_no_pending_approval(self, session_id: UUID) -> None:
+        """Refuse a new message while a write is staged.
+
+        The paused graph holds an interrupt; feeding it a new user message would
+        resume that interrupt with the message as the answer. Failing fast keeps the
+        approval card the only way forward.
+        """
+        async with self.session_factory() as db:
+            pending = await PendingActionRepo(db).find_open(session_id)
+        if pending is not None:
+            raise ApprovalPending(
+                "a staged action is awaiting your decision; approve or reject it first"
+            )
+
+    async def _context(
+        self,
+        db: AsyncSession,
+        session_id: UUID,
+        request_id: str,
+        customer_id: UUID | None = None,
+    ) -> ToolContext:
         session = await SessionRepo(db).get(session_id)
+        if customer_id is not None and session.customer_id != customer_id:
+            # Same answer as a missing session: the API never confirms that another
+            # customer's conversation exists.
+            raise NotFound("session not found")
         return ToolContext(
             customer_id=session.customer_id,
             session_id=session.id,
@@ -116,12 +151,14 @@ class AgentRuntime:
         session_id: UUID,
         message: str,
         request_id: str,
+        customer_id: UUID | None = None,
     ) -> AsyncIterator[TurnEvent]:
-        if self.model is None:
-            raise ModelUnavailable("model is not configured")
-
         async with self.session_factory() as db:
-            ctx = await self._context(db, session_id, request_id)
+            # Ownership is answered before capability: a foreign session is 404 even
+            # when the service has no model configured.
+            ctx = await self._context(db, session_id, request_id, customer_id)
+            if self.model is None:
+                raise ModelUnavailable("model is not configured")
             graph = self._graph(ctx)
             config = graph_config(str(session_id), self.settings.max_tool_calls)
 
@@ -211,12 +248,12 @@ class AgentRuntime:
         idempotency_key: str,
         preview_hash: str,
         request_id: str,
+        customer_id: UUID | None = None,
     ) -> ApprovalResponse:
-        if self.model is None:
-            raise ModelUnavailable("model is not configured")
-
         async with self.session_factory() as db:
-            ctx = await self._context(db, session_id, request_id)
+            ctx = await self._context(db, session_id, request_id, customer_id)
+            if self.model is None:
+                raise ModelUnavailable("model is not configured")
             action = await PendingActionRepo(db).get_for_session(pending_action_id, session_id)
 
             if action.status == "executed":
@@ -229,7 +266,14 @@ class AgentRuntime:
                 raise Conflict("this action was already executed")
             if action.status == "rejected":
                 raise Conflict("this action was rejected")
-            if action.status == "expired" or action.expires_at <= datetime.now(UTC):
+            if action.status == "expired":
+                raise ApprovalExpired("this approval has expired")
+            moment = datetime.now(UTC)
+            if action.expires_at <= moment:
+                # Bookkeeping only: record the lapse, then exit. No write executes.
+                action.status = "expired"
+                action.decided_at = moment
+                await db.commit()
                 raise ApprovalExpired("this approval has expired")
             if not hmac.compare_digest(preview_hash, action.args_hash):
                 raise ApprovalMismatch("approval does not match the staged action")
@@ -251,19 +295,30 @@ class AgentRuntime:
                     config=config,
                     durability="sync",
                 )
-            except (ApprovalExpired, ApprovalMismatch, Conflict):
+                refreshed = await PendingActionRepo(db).get_for_session(
+                    pending_action_id, session_id
+                )
+                ticket_id = (refreshed.result or {}).get("ticket_id")
+                await AuditRepo(db).record(
+                    session_id=session_id,
+                    actor=f"customer:{ctx.customer_id}",
+                    action=f"approval.{decision}",
+                    target=str(pending_action_id),
+                    detail={"ticket_id": ticket_id, "status": refreshed.status},
+                )
+                # The single commit for this request. Everything the graph flushed --
+                # the ticket, the terminal state, the audit row -- lands together or not
+                # at all.
+                await db.commit()
+            except DomainError:
+                await db.rollback()
                 raise
-
-            refreshed = await PendingActionRepo(db).get_for_session(pending_action_id, session_id)
-            ticket_id = (refreshed.result or {}).get("ticket_id")
-            await AuditRepo(db).record(
-                session_id=session_id,
-                actor=f"customer:{ctx.customer_id}",
-                action=f"approval.{decision}",
-                target=str(pending_action_id),
-                detail={"ticket_id": ticket_id, "status": refreshed.status},
-            )
-            await db.commit()
+            except Exception as exc:
+                # A failure after the INSERT must not leave a ticket behind, and the
+                # caller must be able to tell that nothing was created.
+                await db.rollback()
+                logger.exception("approval_write_failed")
+                raise WriteFailed("the ticket could not be created; nothing was saved") from exc
 
             reply = _final_text(result_state) if isinstance(result_state, dict) else ""
             return ApprovalResponse(
@@ -273,9 +328,11 @@ class AgentRuntime:
                 reply=reply or None,
             )
 
-    async def get_transcript(self, session_id: UUID, request_id: str) -> list[TranscriptMessage]:
+    async def get_transcript(
+        self, session_id: UUID, request_id: str, *, customer_id: UUID | None = None
+    ) -> list[TranscriptMessage]:
         async with self.session_factory() as db:
-            ctx = await self._context(db, session_id, request_id)
+            ctx = await self._context(db, session_id, request_id, customer_id)
             graph = self._graph(ctx, model=None)
             state = await graph.aget_state(
                 graph_config(str(session_id), self.settings.max_tool_calls)

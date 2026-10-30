@@ -4,12 +4,12 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Request
 
-from agent.api.deps import get_runtime, require_api_key
+from agent.api.deps import Principal, get_runtime, require_principal
 from agent.logging import request_id_var
 from agent.runtime import AgentRuntime
 from agent.schemas import ApprovalRequest, ApprovalResponse
 
-router = APIRouter(dependencies=[Depends(require_api_key)])
+router = APIRouter()
 
 
 @router.post("/v1/sessions/{session_id}/approvals", response_model=ApprovalResponse)
@@ -17,6 +17,7 @@ async def decide(
     request: Request,
     session_id: UUID,
     body: ApprovalRequest,
+    principal: Principal = Depends(require_principal),
 ) -> ApprovalResponse:
     runtime: AgentRuntime = get_runtime(request)
     return await runtime.resolve_approval(
@@ -26,4 +27,5 @@ async def decide(
         idempotency_key=body.idempotency_key,
         preview_hash=body.preview_hash,
         request_id=request_id_var.get() or "-",
+        customer_id=principal.customer_id,
     )

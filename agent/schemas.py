@@ -6,11 +6,6 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
 
 
-class CreateSessionRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    customer_id: UUID
-
-
 class CreateSessionResponse(BaseModel):
     session_id: UUID
     customer_id: UUID
