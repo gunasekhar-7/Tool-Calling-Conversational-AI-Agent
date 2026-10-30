@@ -1,0 +1,51 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: pm
+    ports:
+      - "55432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d pm"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/pm
+      DEMO_API_KEY: ${DEMO_API_KEY:-change-me}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-}
+      ENVIRONMENT: development
+      LOG_LEVEL: INFO
+    ports:
+      - "8000:8000"
+    command: >
+      sh -c "alembic upgrade head
+      && python scripts/seed.py
+      && exec uvicorn agent.api.main:create_app --factory --host 0.0.0.0 --port 8000"
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: dashboard/Dockerfile
+    depends_on:
+      - api
+    environment:
+      API_BASE: http://api:8000
+      DEMO_API_KEY: ${DEMO_API_KEY:-change-me}
+      DEMO_CUSTOMER_ID: ${DEMO_CUSTOMER_ID:-}
+    ports:
+      - "8501:8501"
+
+volumes:
+  pgdata:
