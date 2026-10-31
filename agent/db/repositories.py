@@ -217,6 +217,20 @@ class PendingActionRepo:
             .limit(1)
         )
 
+    async def find_latest(self, session_id: uuid.UUID) -> PendingAction | None:
+        """The most recent staged write, whatever its terminal state.
+
+        Used to close an interrupt left behind by an approval that expired or whose
+        response was lost. Unlike ``find_open`` this must not filter expired rows: the
+        row is exactly what explains the paused graph.
+        """
+        return await self.session.scalar(
+            select(PendingAction)
+            .where(PendingAction.session_id == session_id)
+            .order_by(PendingAction.created_at.desc())
+            .limit(1)
+        )
+
     async def get_for_session(self, pending_id: uuid.UUID, session_id: uuid.UUID) -> PendingAction:
         action = await self.session.scalar(
             select(PendingAction).where(

@@ -82,6 +82,29 @@ def test_credentials_require_both_key_and_model() -> None:
     assert settings.has_model_credentials is True
 
 
+def test_respan_key_is_optional_and_blank_means_off() -> None:
+    settings = Settings(
+        _env_file=None,
+        database_url="postgresql://u:p@localhost:5432/db",
+        customer_api_keys=KEYS,
+        respan_api_key="  ",
+    )
+    assert settings.respan_api_key is None
+    assert settings.has_respan_key is False
+
+
+def test_respan_key_is_present_when_set() -> None:
+    settings = Settings(
+        _env_file=None,
+        database_url="postgresql://u:p@localhost:5432/db",
+        customer_api_keys=KEYS,
+        respan_api_key="rspn-test",
+    )
+    assert settings.has_respan_key is True
+    # The secret stays masked in anything loggable.
+    assert "rspn-test" not in repr(settings)
+
+
 def test_customer_keys_load_from_json_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv(
         "CUSTOMER_API_KEYS",

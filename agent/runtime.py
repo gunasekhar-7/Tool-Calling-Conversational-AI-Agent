@@ -108,19 +108,80 @@ class AgentRuntime:
             if customer_id is not None and session.customer_id != customer_id:
                 raise NotFound("session not found")
 
-    async def assert_no_pending_approval(self, session_id: UUID) -> None:
-        """Refuse a new message while a write is staged.
+    async def settle_approval_state(
+        self, session_id: UUID, request_id: str, *, customer_id: UUID | None = None
+    ) -> int:
+        """Close a paused approval that can no longer be decided.
 
-        The paused graph holds an interrupt; feeding it a new user message would
-        resume that interrupt with the message as the answer. Failing fast keeps the
-        approval card the only way forward.
+        Returns the number of messages already in the checkpoint, so the caller can
+        tell old tool calls apart from the ones its own turn produces.
+
+        A live proposal still raises ``ApprovalPending``. An expired one is resumed as
+        a rejection with ``silent`` set: the write node records a tool result and ends,
+        so the provider never receives an assistant tool call without an answer. This
+        has to run before the SSE response starts, otherwise the 409 would arrive as a
+        200 stream.
         """
+        owner, sid = await self._resolve(session_id, customer_id)
+        ctx = self._context(owner, sid, request_id)
+        graph = self._graph(ctx, model=None)
+        config = graph_config(str(sid), self.settings.max_tool_calls)
+        state = await self._settle_stale_approval(graph, config, sid)
+        return len(state.values.get("messages", [])) if state.values else 0
+
+    async def _settle_stale_approval(self, graph: Any, config: dict[str, Any], sid: UUID) -> Any:
+        """Resume an interrupt whose approval is no longer decidable.
+
+        The row is the source of truth for what happened: executed approvals replay the
+        ticket id, everything else becomes a rejection. Settlement is silent because
+        the user is not waiting on this turn; generating a reply would spend a model
+        call nobody reads.
+        """
+        state = await graph.aget_state(config)
+        if not state.interrupts:
+            return state
+
         async with self.session_factory() as db:
-            pending = await PendingActionRepo(db).find_open(session_id)
-        if pending is not None:
-            raise ApprovalPending(
-                "a staged action is awaiting your decision; approve or reject it first"
-            )
+            action = await PendingActionRepo(db).find_latest(sid)
+            if action is not None and action.status == "proposed":
+                moment = datetime.now(UTC)
+                if action.expires_at > moment:
+                    raise ApprovalPending(
+                        "a staged action is awaiting your decision; approve or reject it first"
+                    )
+                action.status = "expired"
+                action.decided_at = moment
+            status = action.status if action is not None else "expired"
+            ticket_id = (action.result or {}).get("ticket_id") if action is not None else None
+            await db.commit()
+
+        if status == "executed":
+            resume = {
+                "decision": "approve",
+                "status": "executed",
+                "ticket_id": ticket_id,
+                "replayed": True,
+                "silent": True,
+            }
+        else:
+            resume = {
+                "decision": "reject",
+                "status": "rejected",
+                "ticket_id": None,
+                "replayed": False,
+                "silent": True,
+            }
+
+        try:
+            await graph.ainvoke(Command(resume=resume), config=config, durability="sync")
+        except Exception as exc:
+            # A concurrent settlement can win the race; that is success, not failure.
+            state = await graph.aget_state(config)
+            if not state.interrupts:
+                return state
+            logger.exception("stale_approval_close_failed")
+            raise Conflict("a previous approval is still open; start a new session") from exc
+        return await graph.aget_state(config)
 
     async def _resolve(
         self, session_id: UUID, customer_id: UUID | None = None
@@ -162,6 +223,7 @@ class AgentRuntime:
         message: str,
         request_id: str,
         customer_id: UUID | None = None,
+        prior_count: int | None = None,
     ) -> AsyncIterator[TurnEvent]:
         started = time.perf_counter()
         # Ownership is answered before capability: a foreign session is 404 even
@@ -172,6 +234,11 @@ class AgentRuntime:
         ctx = self._context(owner, sid, request_id)
         graph = self._graph(ctx)
         config = graph_config(str(session_id), self.settings.max_tool_calls)
+
+        if prior_count is None:
+            # Direct callers (tests, scripts) do not go through the route preflight.
+            snapshot = await graph.aget_state(config)
+            prior_count = len(snapshot.values.get("messages", [])) if snapshot.values else 0
 
         emitted_tools: list[str] = []
         streamed = ""
@@ -204,7 +271,9 @@ class AgentRuntime:
             state = await graph.aget_state(config)
             values = state.values or {}
 
-            for message_obj in values.get("messages", []):
+            # Only this turn's messages: a state-wide scan would replay every
+            # historical tool call on every later turn.
+            for message_obj in values.get("messages", [])[prior_count:]:
                 for call in getattr(message_obj, "tool_calls", None) or []:
                     name = call.get("name")
                     if name and name not in emitted_tools:

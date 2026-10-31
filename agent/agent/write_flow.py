@@ -6,6 +6,7 @@ from collections.abc import Awaitable, Callable
 from typing import Literal
 
 from langchain_core.messages import ToolMessage
+from langgraph.graph import END
 from langgraph.types import Command, interrupt
 from pydantic import BaseModel, ConfigDict, ValidationError
 
@@ -33,6 +34,9 @@ class ApprovalResume(BaseModel):
     status: Literal["executed", "rejected"]
     ticket_id: str | None = None
     replayed: bool = False
+    # Set when the runtime is closing an expired approval: there is nobody to
+    # reply to, so the turn ends after recording the tool result.
+    silent: bool = False
 
 
 def _tool_error(tool_call_id: str, error: str, message: str) -> ToolMessage:
@@ -152,7 +156,7 @@ def make_write_node(
             },
         )
         return Command(
-            goto="agent",
+            goto=END if approval.silent else "agent",
             update={
                 "messages": [ToolMessage(content=json.dumps(content), tool_call_id=call["id"])],
                 "pending_action_id": None,

@@ -60,6 +60,11 @@ A write is never executed inside the model's turn.
 5. Only after that commit does the graph resume with a tool message so the model can answer
    using the real ticket id. The write is durable before the reply is written, and no database
    connection is held while the model produces it.
+6. If the approval expires, the next message **settles the interrupt as a rejection** before
+   the new turn starts: the write node records a rejected tool result and ends. No ticket is
+   created, no model reply is spent, and the conversation never reaches the provider with an
+   unanswered tool call. The runbook's "re-ask the agent" recovery is therefore real, not
+   aspirational.
 
 A `user_confirmed` flag inside the agent's own state would not be authorization — the model
 could set it. Authorization lives outside the model, in a row the model cannot write. The
@@ -131,7 +136,7 @@ the definition of "it works".
 uv sync --frozen --extra dev --extra dashboard      # lockfile resolves
 uv run --frozen ruff check . && uv run --frozen ruff format --check agent tests evals dashboard scripts
 uv run --frozen mypy
-uv run --frozen pytest                               # 133 tests, real Postgres, 0 skipped
+uv run --frozen pytest                               # 140 tests, real Postgres, 0 skipped
 uv run --frozen python scripts/evaluate.py --trials 3 --fail-under 1.0
 ```
 
@@ -146,6 +151,11 @@ port 5432.
 `agent_guardrail_blocks_total` — behind the same bearer auth as everything else. What each one
 means, the alert thresholds, how to clear a stuck `proposed` action, how to rotate a customer
 token, how to roll back a deploy, and how to read each report: [docs/runbook.md](docs/runbook.md).
+
+Model-call tracing is opt-in. With `RESPAN_API_KEY` set, the API initializes Respan once before
+the first model client and flushes at shutdown; unset, the SDK is never imported and the process
+behaves exactly as it did before. Traces include prompts and tool payloads, so enable it only
+where that content is allowed to leave the deployment.
 
 ## Run it locally
 
@@ -215,7 +225,7 @@ migrations/     Alembic (initial schema + rate_limit_buckets)
 evals/          Scenarios (25), scripted model, grading runner, committed reports
 dashboard/      Streamlit app + HTTP/SSE client
 scripts/        serve.py, seed.py, evaluate.py, loadtest.py
-tests/          133 unit + integration tests (real Postgres)
+tests/          140 unit + integration tests (real Postgres)
 docs/           runbook.md, decisions.md, superpowers/plans/
 ```
 
@@ -234,3 +244,7 @@ docs/           runbook.md, decisions.md, superpowers/plans/
   rebuild and provider latency, recorded in `evals/report/load.md`.
 - Grounding aside, this is single-tenant-per-token: there is no admin scope, no cross-customer
   query, and no way to enumerate other accounts.
+- The committed dashboard has no login of its own; it is a demo client that holds a customer
+token and can do nothing the API would not allow. Put it behind your own auth before exposing it.
+- With tracing enabled, prompts and tool payloads are exported to Respan. Disable it where that
+  data cannot leave the deployment.

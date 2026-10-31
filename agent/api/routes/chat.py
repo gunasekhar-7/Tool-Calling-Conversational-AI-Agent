@@ -27,8 +27,11 @@ async def send_message(
     settings: Settings = get_settings(request)
     runtime: AgentRuntime = get_runtime(request)
 
-    await runtime.ensure_session(session_id, customer_id=principal.customer_id)
-    await runtime.assert_no_pending_approval(session_id)
+    # Ownership, live approvals and stale interrupts are settled before the stream
+    # starts, so a refusal is a real 409 rather than an error event inside a 200.
+    prior_count = await runtime.settle_approval_state(
+        session_id, request_id_var.get() or "-", customer_id=principal.customer_id
+    )
 
     if runtime.model is None:
         raise ModelUnavailable("LLM_MODEL and OPENAI_API_KEY must be configured")
@@ -55,6 +58,7 @@ async def send_message(
             message=screen.sanitized,
             request_id=request_id_var.get() or "-",
             customer_id=principal.customer_id,
+            prior_count=prior_count,
         ),
         interval=settings.sse_keepalive_seconds,
     )

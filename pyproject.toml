@@ -18,6 +18,7 @@ dependencies = [
   "httpx>=0.27",
   "pyyaml>=6.0",
   "prometheus-client>=0.20",
+  "respan-ai==4.2.4",
 ]
 
 [project.optional-dependencies]

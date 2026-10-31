@@ -23,6 +23,9 @@ class Settings(BaseSettings):
     openai_api_key: SecretStr | None = None
     llm_model: str | None = None
     llm_temperature: float = 0.0
+    # Optional: with a key set, every model call is exported to Respan as a trace.
+    # Absent, the SDK is never imported and the app behaves exactly as before.
+    respan_api_key: SecretStr | None = None
 
     # token -> customer. One key per customer: there is no master key that can read
     # another account's data, so a leaked token is a single-tenant incident.
@@ -54,6 +57,11 @@ class Settings(BaseSettings):
     def _blank_model_to_none(cls, value: object) -> object:
         return value.strip() if isinstance(value, str) and value.strip() else None
 
+    @field_validator("respan_api_key", mode="before")
+    @classmethod
+    def _blank_secret_to_none(cls, value: object) -> object:
+        return value.strip() if isinstance(value, str) and value.strip() else None
+
     @field_validator("database_url", "checkpoint_dsn")
     @classmethod
     def _require_postgres(cls, value: str | None) -> str | None:
@@ -81,6 +89,11 @@ class Settings(BaseSettings):
     def has_model_credentials(self) -> bool:
         key = self.openai_api_key.get_secret_value().strip() if self.openai_api_key else ""
         return bool(key and self.llm_model)
+
+    @property
+    def has_respan_key(self) -> bool:
+        key = self.respan_api_key.get_secret_value().strip() if self.respan_api_key else ""
+        return bool(key)
 
     @property
     def is_production(self) -> bool:

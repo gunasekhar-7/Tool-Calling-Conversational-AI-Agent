@@ -4,7 +4,7 @@ import uuid
 
 import httpx
 import pytest
-from langchain_core.messages import AIMessage
+from langchain_core.messages import AIMessage, ToolMessage
 from sqlalchemy import func, select, update
 
 from agent.db.models import Ticket
@@ -45,6 +45,28 @@ async def _ticket_count(factory, customer_id=CUSTOMER_A) -> int:
             select(func.count()).select_from(Ticket).where(Ticket.customer_id == customer_id)
         )
         return int(total or 0)
+
+
+def _pending_tool_calls(messages) -> set[str]:
+    """Tool calls still waiting for a ToolMessage, as a provider would see them."""
+    open_ids: set[str] = set()
+    for message in messages:
+        for call in getattr(message, "tool_calls", None) or []:
+            open_ids.add(call["id"])
+        if isinstance(message, ToolMessage):
+            open_ids.discard(message.tool_call_id)
+    return open_ids
+
+
+def _expired_model() -> ScriptedChatModel:
+    return ScriptedChatModel(
+        responses=[
+            tool_call("create_ticket", TICKET_ARGS, "call-expire-1"),
+            AIMessage(content="Sure — what else can I help with?"),
+            tool_call("create_ticket", TICKET_ARGS, "call-expire-2"),
+            AIMessage(content="Ticket is open."),
+        ]
+    )
 
 
 async def test_approve_creates_exactly_one_ticket(app_client, factory) -> None:
@@ -277,3 +299,102 @@ async def test_expired_approval_is_refused(app_client, factory) -> None:
 
     assert response.status_code == 409
     assert response.json()["code"] == "approval_expired"
+
+
+async def test_message_after_expiry_keeps_the_session_usable(app_client, factory) -> None:
+    from datetime import UTC, datetime, timedelta
+
+    from agent.db.models import PendingAction
+
+    model = _expired_model()
+    async with app_client(model) as client:
+        session_id = await create_session(client, str(CUSTOMER_A))
+        proposal = dict(await collect_events(client, session_id, "Open a ticket please."))[
+            "confirmation_required"
+        ]
+        async with factory() as db:
+            await db.execute(
+                update(PendingAction)
+                .where(PendingAction.id == uuid.UUID(proposal["pending_action_id"]))
+                .values(expires_at=datetime.now(UTC) - timedelta(seconds=1))
+            )
+            await db.commit()
+
+        before = await _ticket_count(factory)
+        events = await collect_events(client, session_id, "Never mind — what else can you do?")
+        names = [name for name, _ in events]
+        async with factory() as db:
+            row = await db.scalar(
+                select(PendingAction).where(
+                    PendingAction.id == uuid.UUID(proposal["pending_action_id"])
+                )
+            )
+
+        assert "done" in names
+        assert "tool_call" not in names, "the expired write is not this turn's work"
+        assert _pending_tool_calls(model.seen[-1]) == set(), "provider history must be valid"
+        assert row.status == "expired"
+        assert await _ticket_count(factory) == before
+
+        # The same conversation can stage and approve a fresh write.
+        second = dict(await collect_events(client, session_id, "Actually, open one."))
+        approval = await client.post(
+            f"/v1/sessions/{session_id}/approvals",
+            json={
+                "pending_action_id": second["confirmation_required"]["pending_action_id"],
+                "decision": "approve",
+                "idempotency_key": "recovered-key-0001",
+                "preview_hash": second["confirmation_required"]["preview_hash"],
+            },
+            headers=AUTH,
+        )
+
+    assert approval.status_code == 200, approval.text
+    assert approval.json()["status"] == "executed"
+    assert await _ticket_count(factory) == before + 1
+
+
+async def test_expiry_reported_by_the_endpoint_also_keeps_the_session_usable(
+    app_client, factory
+) -> None:
+    from datetime import UTC, datetime, timedelta
+
+    from agent.db.models import PendingAction
+
+    model = ScriptedChatModel(
+        responses=[
+            tool_call("create_ticket", TICKET_ARGS, "call-endpoint-expire"),
+            AIMessage(content="Okay — nothing was created."),
+        ]
+    )
+    async with app_client(model) as client:
+        session_id = await create_session(client, str(CUSTOMER_A))
+        proposal = dict(await collect_events(client, session_id, "Open a ticket please."))[
+            "confirmation_required"
+        ]
+        async with factory() as db:
+            await db.execute(
+                update(PendingAction)
+                .where(PendingAction.id == uuid.UUID(proposal["pending_action_id"]))
+                .values(expires_at=datetime.now(UTC) - timedelta(seconds=1))
+            )
+            await db.commit()
+
+        expired = await client.post(
+            f"/v1/sessions/{session_id}/approvals",
+            json={
+                "pending_action_id": proposal["pending_action_id"],
+                "decision": "approve",
+                "idempotency_key": "endpoint-expire-key-0001",
+                "preview_hash": proposal["preview_hash"],
+            },
+            headers=AUTH,
+        )
+        before = await _ticket_count(factory)
+        events = await collect_events(client, session_id, "Hello again.")
+
+    assert expired.status_code == 409
+    assert expired.json()["code"] == "approval_expired"
+    assert "done" in [name for name, _ in events]
+    assert _pending_tool_calls(model.seen[-1]) == set()
+    assert await _ticket_count(factory) == before

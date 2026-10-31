@@ -76,6 +76,26 @@ async def test_token_stream_ends_with_done(app_client, seeded: None) -> None:
     assert any(name == "token" for name in names)
 
 
+async def test_later_turn_does_not_replay_historical_tool_calls(app_client, seeded: None) -> None:
+    model = ScriptedChatModel(
+        responses=[
+            tool_call("get_order_status", {"order_id": "ORD-1001"}, "call-read"),
+            AIMessage(content="Order ORD-1001 was delivered."),
+            AIMessage(content="You're welcome."),
+        ]
+    )
+    async with app_client(model) as client:
+        session_id = await create_session(client, str(CUSTOMER_A))
+        first = await collect_events(client, session_id, "Where is ORD-1001?")
+        second = await collect_events(client, session_id, "Thanks!")
+
+    assert "tool_call" in [name for name, _ in first]
+    assert "tool_call" not in [name for name, _ in second], (
+        "a tool that ran on an earlier turn is not this turn's activity"
+    )
+    assert second[-1][0] == "done"
+
+
 async def test_write_turn_pauses_for_confirmation(app_client, seeded: None) -> None:
     model = ScriptedChatModel(
         responses=[

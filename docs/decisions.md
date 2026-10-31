@@ -146,3 +146,29 @@ write failed — the correct direction for a decision a human already made.
 reply roll the ticket back, which is worse: a human approved a write and the system
 would discard it because a later prose step failed. Only a separate reconciliation
 job could justify that shape.
+
+## ADR-7 — An expired approval is settled as a rejection
+
+**Context.** `interrupt()` leaves an assistant tool call in the checkpoint. The TTL
+guard only consults `pending_actions`; after expiry it stops refusing messages, but
+the checkpoint still holds the unanswered call. A provider rejects a message list
+where an assistant tool call has no matching tool result, so the next turn would fail
+and every turn after it would fail the same way.
+
+**Decision.** Before the SSE stream starts, `settle_approval_state` examines the
+checkpoint. A live proposal still raises `approval_pending`. An expired one is
+resumed with `ApprovalResume(silent=True)`: the write node records a rejected tool
+result and routes to END. No model reply is generated. An executed action whose
+resume was lost is replayed the same way with its ticket id, so the tool call is
+answered with the truth.
+
+**Consequence.** Expiry is a clean terminal state and the next message is a valid
+provider request. The cost is one graph resume on the first message after an
+abandoned approval; it makes no model call and no write. The preflight also returns
+the checkpoint's message count, which is what stops the turn from replaying old tool
+calls as new activity.
+
+**What would change it.** A checkpointer that can atomically discard an interrupt, or
+a write node that does not persist the tool call until approval. Both add more
+machinery than one silent resume, and the resume keeps the provider history valid
+for every future turn.

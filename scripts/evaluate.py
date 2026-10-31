@@ -22,6 +22,7 @@ from typing import Any
 from agent.config import Settings
 from agent.db.session import create_engine
 from agent.errors import ModelUnavailable
+from agent.tracing import flush_tracing
 from evals.runner import (
     TrialResult,
     _prepare_schema,
@@ -134,6 +135,8 @@ async def _run(args: argparse.Namespace) -> Artifacts | int:
                 for failure in result.failures:
                     print(f"        - {failure}")
     finally:
+        # A live run is short-lived: send the traces before the process exits.
+        flush_tracing()
         await engine.dispose()
 
     summary = summarise(results, args.trials)

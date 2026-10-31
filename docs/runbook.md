@@ -31,13 +31,18 @@ All series are per process. With more than one machine, sum across instances.
 `agent_turn_seconds` is the honest latency number. It includes the provider call.
 `evals/report/load.md` is a different measurement (no provider); do not mix them.
 
+Model-call tracing is opt-in. With `RESPAN_API_KEY` set, tracing is initialized once
+before the first model client and flushed at shutdown; unset, the SDK is never
+imported. It exports prompts and tool payloads to a third party, so treat the key as
+a data-processing decision, not just an observability toggle.
+
 ## 3. Error codes and what a client should do
 
 | HTTP | `code` | Meaning | Client behaviour |
 | --- | --- | --- | --- |
 | 403 | `policy_denied` | Missing or invalid bearer token (no token is a match in `CUSTOMER_API_KEYS`), or the message tripped the input screen | Do not retry. Show the message; for a token problem, re-authenticate or rotate |
-| 409 | `approval_pending` | A staged write is waiting; a new message would be read as the approval answer | Keep the approval card visible and block new messages |
-| 409 | `approval_expired` | The TTL passed before the decision landed. No write happened | Re-ask the agent; it will stage a fresh action |
+| 409 | `approval_pending` | A staged write is still live. A new message would leave its tool call unanswered | Keep the approval card visible and block new messages |
+| 409 | `approval_expired` | The TTL passed before the decision landed. The paused graph is settled as a rejection; no write happened | Re-ask the agent; the session remains valid |
 | 409 | `approval_mismatch` | The `preview_hash` does not match the staged arguments | Re-render the preview from a fresh turn; never retry with the old hash |
 | 409 | `conflict` | The action was already executed with a different idempotency key, or already rejected | Treat as final. Fetch the ticket to confirm |
 | 413 | `request_too_large` | `Content-Length` exceeds `MAX_REQUEST_BYTES` (64 KiB) | Fix the request; this is refused before parsing |
@@ -46,9 +51,13 @@ All series are per process. With more than one machine, sum across instances.
 | 503 | `model_unavailable` | `LLM_MODEL` / `OPENAI_API_KEY` missing, or no model could be built | Operator action, not a client retry loop |
 | 500 | `write_failed` | The approved write failed and was rolled back. Nothing was created | Safe to retry the approval with a new idempotency key |
 
-The 409 `approval_pending` is deliberate: feeding a message into a paused graph
-would resume its `interrupt()` with that message as the answer, so the API refuses
-instead (`AgentRuntime.assert_no_pending_approval`).
+The 409 `approval_pending` is deliberate: the graph is paused with an unanswered tool
+call, so the API refuses a new message rather than letting it inherit that call
+(`AgentRuntime.settle_approval_state`). Once the approval expires, the next message
+settles the interrupt as a **silent rejection** before the new turn starts: the write
+node records a rejected tool result and routes to END. No model call is made, no
+ticket is created, and the provider never sees an assistant tool call without a
+matching tool message.
 
 ## 4. A proposed action is stuck
 
@@ -57,7 +66,10 @@ passed, or the approval response was lost.
 
 1. It is already harmless after the TTL: the next approval attempt marks it
    `expired` and executes nothing (`PendingActionRepo.consume`).
-2. To stop it counting as "open" for a session sooner:
+2. No manual graph cleanup is needed. The next message closes an expired interrupt
+   silently and starts a fresh turn; a row marked `expired` by hand is settled the
+   same way.
+3. To stop it counting as "open" for a session sooner:
 
    ```sql
    UPDATE pending_actions
@@ -65,9 +77,10 @@ passed, or the approval response was lost.
     WHERE status = 'proposed' AND expires_at < now();
    ```
 
-3. If a row is `executed`, the ticket exists — the process died after the commit,
+4. If a row is `executed`, the ticket exists — the process died after the commit,
    which is the only way that state is visible. Nothing to repair; the audit row
-   `approval.approve` names the ticket.
+   `approval.approve` names the ticket. The next message replays the executed outcome
+   into the graph so its tool call is answered with that ticket id.
 
 Never "fix" a `proposed` row by setting it to `executed`: that would claim a write
 that never happened. Recovery is always expire-and-restage.
@@ -143,5 +156,9 @@ provider removed. It is not a success rate.
   the recovery path.
 - The rate limiter is per customer, not per IP or per endpoint. One customer
   exhausting their budget does not affect another.
+- The dashboard is a demo client with no login of its own. It holds one customer
+  token and can do nothing the API would not allow, but it must sit behind your auth
+  before being exposed.
+- With `RESPAN_API_KEY` set, prompts and tool payloads leave the deployment in traces.
 - Realtime collaboration is out of scope: sessions belong to one customer at a
   time and there is no websocket fan-out.

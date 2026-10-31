@@ -20,6 +20,7 @@ from agent.db.session import create_engine, create_session_factory
 from agent.logging import configure_logging, request_id_var
 from agent.observability import Metrics
 from agent.runtime import AgentRuntime
+from agent.tracing import flush_tracing
 
 logger = logging.getLogger(__name__)
 
@@ -81,6 +82,8 @@ def create_app(
         try:
             yield
         finally:
+            # Export buffered traces before the process gives up its exporters.
+            flush_tracing()
             await engine.dispose()
             if pool is not None:
                 await pool.close()
