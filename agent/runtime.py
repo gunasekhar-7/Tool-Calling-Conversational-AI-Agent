@@ -110,11 +110,12 @@ class AgentRuntime:
 
     async def settle_approval_state(
         self, session_id: UUID, request_id: str, *, customer_id: UUID | None = None
-    ) -> int:
+    ) -> int | None:
         """Close a paused approval that can no longer be decided.
 
         Returns the number of messages already in the checkpoint, so the caller can
-        tell old tool calls apart from the ones its own turn produces.
+        tell old tool calls apart from the ones its own turn produces, or ``None`` when
+        no write was ever staged and there is no interrupt to look for.
 
         A live proposal still raises ``ApprovalPending``. An expired one is resumed as
         a rejection with ``silent`` set: the write node records a tool result and ends,
@@ -123,6 +124,12 @@ class AgentRuntime:
         200 stream.
         """
         owner, sid = await self._resolve(session_id, customer_id)
+        async with self.session_factory() as db:
+            action = await PendingActionRepo(db).find_latest(sid)
+        if action is None:
+            # No write was staged in this session, so no interrupt can exist. Read-only
+            # conversations must not pay for a second graph build on every turn.
+            return None
         ctx = self._context(owner, sid, request_id)
         graph = self._graph(ctx, model=None)
         config = graph_config(str(sid), self.settings.max_tool_calls)

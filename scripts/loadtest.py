@@ -316,6 +316,8 @@ def render_markdown(run: Run, args: argparse.Namespace, argv: list[str] | None) 
         "- With `--think-ms 0` the scripted model does synchronous CPU work on the",
         "  event loop, so the concurrent row is dominated by one Python process rather",
         "  than by the pool. Raise the think time to see turns overlap.",
+        "- One process on one machine: p50 moves by roughly ±30% between runs. Repeat",
+        "  the command before reading a single run as a regression.",
         "- With a simulated wait the turn releases both the loop and the pool; a turn",
         "  holds a connection only for its own short tool/staging transactions.",
         "- Run it on the machine you are quoting from; absolute numbers are not portable.",

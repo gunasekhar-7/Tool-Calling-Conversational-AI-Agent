@@ -115,12 +115,14 @@ rows changed.
 Latency under concurrency is a separate artefact: [`evals/report/load.md`](evals/report/load.md)
 records one client alone versus 20 concurrent sessions with a 200 ms simulated provider wait, so
 the provider is not the bottleneck being measured. The wait is a synthetic delay, not a model
-quality signal; without it the scripted stub is CPU-bound and hides concurrency.
+quality signal; without it the scripted stub is CPU-bound and hides concurrency. The harness is
+one process on one laptop: p50 moves by roughly ±30% between runs, so read the error rate and the
+shape, not the millisecond. Repeat the command before drawing a conclusion from a single run.
 
 ```bash
 python scripts/evaluate.py --trials 3            # offline, no key needed
 python scripts/evaluate.py --mode live --trials 3  # needs OPENAI_API_KEY + LLM_MODEL
-python scripts/loadtest.py --sessions 20 --messages 5
+python scripts/loadtest.py --sessions 20 --messages 3 --think-ms 200
 ```
 
 Every report carries the commit, the scenario-file hash, the prompt version, the mode and the
