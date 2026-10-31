@@ -90,7 +90,7 @@ Committed report: [`evals/report/report.md`](evals/report/report.md).
 | --- | --- | --- | --- | --- |
 | offline (pipeline) | Task success rate `pass^1` | 100.0 % | 95.1 % – 100.0 % | 75 |
 | offline (pipeline) | `pass^3` (all trials succeeded) | 100.0 % | 86.7 % – 100.0 % | 25 |
-| offline (pipeline) | Turn latency p50 / p95 | 107.0 ms / 126.8 ms | — | 75 |
+| offline (pipeline) | Turn latency p50 / p95 | 92.7 ms / 185.3 ms | — | 75 |
 | live (model) | Task success rate | not run — no provider key configured here | — | 0 |
 
 A trial only passes when **all** of these hold: the expected HTTP/error outcome occurred, the
