@@ -13,3 +13,4 @@ build/
 .streamlit/secrets.toml
 .DS_Store
 .vscode/
+.freebuff/
