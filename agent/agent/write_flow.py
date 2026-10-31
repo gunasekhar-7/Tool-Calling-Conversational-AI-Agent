@@ -11,7 +11,6 @@ from pydantic import BaseModel, ConfigDict, ValidationError
 
 from agent.agent.guardrails.policy import authorize
 from agent.agent.state import AgentState
-from agent.db.repositories import ExecutionResult, PendingActionRepo
 from agent.errors import NotFound
 from agent.observability import record_tool
 from agent.tools.context import ToolContext
@@ -23,12 +22,17 @@ WRITE_TOOL_NAMES = {"create_ticket"}
 
 
 class ApprovalResume(BaseModel):
-    """What the approval endpoint hands back to the paused graph."""
+    """The outcome the approval endpoint has already committed.
+
+    The write executes in the endpoint's transaction, before the graph resumes. The
+    node's job on resume is to report that outcome to the model, not to decide it.
+    """
 
     model_config = ConfigDict(extra="forbid")
     decision: Literal["approve", "reject"]
-    idempotency_key: str
-    preview_hash: str
+    status: Literal["executed", "rejected"]
+    ticket_id: str | None = None
+    replayed: bool = False
 
 
 def _tool_error(tool_call_id: str, error: str, message: str) -> ToolMessage:
@@ -79,11 +83,11 @@ def make_write_node(
             )
 
         # Staging is idempotent on the tool-call id because LangGraph re-runs this
-        # node from the top when the interrupt is resumed.
+        # node from the top when the interrupt is resumed. It commits its own short
+        # transaction, so no connection is held while the human decides.
         stage_key = f"{ctx.session_id}:{call['id']}"
-        already_staged = await PendingActionRepo(ctx.db).exists_for_stage_key(stage_key)
         try:
-            action, preview = await stage_create_ticket(
+            staged, preview, already_staged = await stage_create_ticket(
                 args,
                 ctx,
                 stage_key=stage_key,
@@ -111,8 +115,8 @@ def make_write_node(
             extra={
                 "extra_fields": {
                     "tool": "create_ticket",
-                    "pending_action_id": str(action.id),
-                    "status": action.status,
+                    "pending_action_id": str(staged.id),
+                    "status": staged.status,
                 }
             },
         )
@@ -130,35 +134,20 @@ def make_write_node(
                 },
             )
 
-        if action.status == "proposed":
-            result = await PendingActionRepo(ctx.db).consume(
-                pending_id=action.id,
-                session_id=ctx.session_id,
-                decision=approval.decision,
-                consume_key=approval.idempotency_key,
-                preview_hash=approval.preview_hash,
-            )
-        else:
-            result = ExecutionResult(
-                status=action.status,
-                ticket_id=(action.result or {}).get("ticket_id"),
-                replayed=True,
-            )
-
         content = {
-            "ok": result.status == "executed",
-            "status": result.status,
-            "ticket_id": result.ticket_id,
-            "replayed": result.replayed,
+            "ok": approval.status == "executed",
+            "status": approval.status,
+            "ticket_id": approval.ticket_id,
+            "replayed": approval.replayed,
         }
-        record_tool(ctx, "create_ticket", result.status)
+        record_tool(ctx, "create_ticket", approval.status)
         logger.info(
             "write_resolved",
             extra={
                 "extra_fields": {
-                    "pending_action_id": str(action.id),
-                    "status": result.status,
-                    "ticket_id": result.ticket_id,
+                    "pending_action_id": str(staged.id),
+                    "status": approval.status,
+                    "ticket_id": approval.ticket_id,
                 }
             },
         )

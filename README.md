@@ -57,12 +57,13 @@ A write is never executed inside the model's turn.
    the **same** key returns the original ticket instead of creating a second one. Unique
    constraints on `stage_key` and `consume_key` are the backstop if two requests ever race
    past the lock.
-5. Only after that commit does the request return, and the graph resumes with a tool message so
-   the model can answer using the real ticket id.
+5. Only after that commit does the graph resume with a tool message so the model can answer
+   using the real ticket id. The write is durable before the reply is written, and no database
+   connection is held while the model produces it.
 
 A `user_confirmed` flag inside the agent's own state would not be authorization — the model
 could set it. Authorization lives outside the model, in a row the model cannot write. The
-commit is likewise outside the graph: repositories `flush()`, and the request boundary commits
+commit is likewise outside the graph: repositories `flush()`, and the approval endpoint commits
 exactly once, which is why a failed write can honestly say nothing was saved.
 
 ## Guardrails
@@ -107,8 +108,9 @@ rows changed.
 > writing a 0 % report when the key is missing.
 
 Latency under concurrency is a separate artefact: [`evals/report/load.md`](evals/report/load.md)
-records one client alone versus 20 concurrent sessions, with the provider removed, so it is the
-platform's own cost and not a quality signal.
+records one client alone versus 20 concurrent sessions with a 200 ms simulated provider wait, so
+the provider is not the bottleneck being measured. The wait is a synthetic delay, not a model
+quality signal; without it the scripted stub is CPU-bound and hides concurrency.
 
 ```bash
 python scripts/evaluate.py --trials 3            # offline, no key needed
@@ -129,7 +131,7 @@ the definition of "it works".
 uv sync --frozen --extra dev --extra dashboard      # lockfile resolves
 uv run --frozen ruff check . && uv run --frozen ruff format --check agent tests evals dashboard scripts
 uv run --frozen mypy
-uv run --frozen pytest                               # 131 tests, real Postgres, 0 skipped
+uv run --frozen pytest                               # 133 tests, real Postgres, 0 skipped
 uv run --frozen python scripts/evaluate.py --trials 3 --fail-under 1.0
 ```
 
@@ -213,7 +215,7 @@ migrations/     Alembic (initial schema + rate_limit_buckets)
 evals/          Scenarios (25), scripted model, grading runner, committed reports
 dashboard/      Streamlit app + HTTP/SSE client
 scripts/        serve.py, seed.py, evaluate.py, loadtest.py
-tests/          131 unit + integration tests (real Postgres)
+tests/          133 unit + integration tests (real Postgres)
 docs/           runbook.md, decisions.md, superpowers/plans/
 ```
 
@@ -226,8 +228,9 @@ docs/           runbook.md, decisions.md, superpowers/plans/
   first.
 - Grounding verifies identifiers, amounts and dates. It cannot verify prose, and a creative
   sentence with no concrete claims passes by design.
-- Each in-flight turn holds one pooled database connection from its first tool call to the
-  commit, so concurrent turns per process are capped by `DB_POOL_SIZE + DB_MAX_OVERFLOW`
-  (10 + 10). Past that, turns queue; `evals/report/load.md` shows what that costs.
+- A turn holds no database connection while the model streams; tools and staging borrow one
+  only for their own short transaction. `DB_POOL_SIZE + DB_MAX_OVERFLOW` therefore bounds
+  concurrent database work, not conversations. The remaining per-turn costs are the graph
+  rebuild and provider latency, recorded in `evals/report/load.md`.
 - Grounding aside, this is single-tenant-per-token: there is no admin scope, no cross-customer
   query, and no way to enumerate other accounts.

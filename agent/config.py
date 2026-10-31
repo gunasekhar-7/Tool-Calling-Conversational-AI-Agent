@@ -30,11 +30,14 @@ class Settings(BaseSettings):
     max_tool_calls: int = Field(default=8, ge=1, le=32)
     approval_ttl_seconds: int = Field(default=900, ge=1)
     max_message_chars: int = Field(default=2000, ge=1)
+    # Refused from the Content-Length header before the body is parsed: the message
+    # screen runs later and cannot protect the process from a huge JSON document.
+    max_request_bytes: int = Field(default=64 * 1024, ge=1024)
     rate_limit_per_min: int = Field(default=30, ge=1)
     rate_limit_burst: int = Field(default=10, ge=1)
-    # An in-flight turn holds one connection for its whole duration (tools, the
-    # write staging, the commit), so this pair is also the per-process ceiling on
-    # concurrent turns. See docs/runbook.md.
+    # Tools and staging borrow a connection only for their own short transaction;
+    # a turn holds none while the model runs. This pair bounds concurrent database
+    # work, not concurrent conversations. See docs/runbook.md.
     db_pool_size: int = Field(default=10, ge=1)
     db_max_overflow: int = Field(default=10, ge=0)
     log_level: str = "INFO"

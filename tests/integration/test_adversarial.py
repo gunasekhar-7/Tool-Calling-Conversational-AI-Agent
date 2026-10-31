@@ -225,6 +225,21 @@ async def test_near_limit_messages_are_accepted_and_one_over_is_rejected(app_cli
     assert too_long.json()["code"] == "invalid_input"
 
 
+async def test_oversized_body_is_refused_before_the_model(app_client) -> None:
+    model = ScriptedChatModel(responses=[AIMessage(content="unused")])
+    async with app_client(model) as client:
+        session_id = await create_session(client, str(CUSTOMER_A))
+        response = await client.post(
+            f"/v1/sessions/{session_id}/messages",
+            json={"message": "x" * 100_000},
+            headers=AUTH,
+        )
+
+    assert response.status_code == 413
+    assert response.json()["code"] == "request_too_large"
+    assert model.calls == 0
+
+
 async def test_unknown_order_reference_stays_grounded(app_client, factory) -> None:
     """Reminder for the fail-closed path: no receipt, no status claim."""
     async with factory() as db:

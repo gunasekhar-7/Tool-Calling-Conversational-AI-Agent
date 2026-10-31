@@ -122,22 +122,23 @@ class AgentRuntime:
                 "a staged action is awaiting your decision; approve or reject it first"
             )
 
-    async def _context(
-        self,
-        db: AsyncSession,
-        session_id: UUID,
-        request_id: str,
-        customer_id: UUID | None = None,
-    ) -> ToolContext:
-        session = await SessionRepo(db).get(session_id)
-        if customer_id is not None and session.customer_id != customer_id:
-            # Same answer as a missing session: the API never confirms that another
-            # customer's conversation exists.
-            raise NotFound("session not found")
+    async def _resolve(
+        self, session_id: UUID, customer_id: UUID | None = None
+    ) -> tuple[UUID, UUID]:
+        """Resolve a session and its owner using a connection only for the lookup."""
+        async with self.session_factory() as db:
+            session = await SessionRepo(db).get(session_id)
+            if customer_id is not None and session.customer_id != customer_id:
+                # Same answer as a missing session: the API never confirms that another
+                # customer's conversation exists.
+                raise NotFound("session not found")
+            return session.customer_id, session.id
+
+    def _context(self, customer_id: UUID, session_id: UUID, request_id: str) -> ToolContext:
         return ToolContext(
-            customer_id=session.customer_id,
-            session_id=session.id,
-            db=db,
+            customer_id=customer_id,
+            session_id=session_id,
+            session_factory=self.session_factory,
             request_id=request_id,
             metrics=self.metrics,
         )
@@ -163,94 +164,96 @@ class AgentRuntime:
         customer_id: UUID | None = None,
     ) -> AsyncIterator[TurnEvent]:
         started = time.perf_counter()
-        async with self.session_factory() as db:
-            # Ownership is answered before capability: a foreign session is 404 even
-            # when the service has no model configured.
-            ctx = await self._context(db, session_id, request_id, customer_id)
-            if self.model is None:
-                raise ModelUnavailable("model is not configured")
-            graph = self._graph(ctx)
-            config = graph_config(str(session_id), self.settings.max_tool_calls)
+        # Ownership is answered before capability: a foreign session is 404 even
+        # when the service has no model configured.
+        owner, sid = await self._resolve(session_id, customer_id)
+        if self.model is None:
+            raise ModelUnavailable("model is not configured")
+        ctx = self._context(owner, sid, request_id)
+        graph = self._graph(ctx)
+        config = graph_config(str(session_id), self.settings.max_tool_calls)
 
-            emitted_tools: list[str] = []
-            streamed = ""
-            try:
-                async for part in graph.astream(
-                    {
-                        "messages": [HumanMessage(content=message)],
-                        "customer_id": str(ctx.customer_id),
-                    },
-                    config=config,
-                    stream_mode="messages",
-                    version="v2",
-                    durability="sync",
-                ):
-                    unpacked = _unpack(part)
-                    if unpacked is None:
-                        continue
-                    chunk, _meta = unpacked
-                    if isinstance(chunk, AIMessageChunk):
-                        for call in getattr(chunk, "tool_call_chunks", None) or []:
-                            name = call.get("name") if isinstance(call, dict) else None
-                            if name and name not in emitted_tools:
-                                emitted_tools.append(name)
-                                yield TurnEvent("tool_call", {"name": name})
-                        text = _text_of(chunk)
-                        if text:
-                            streamed += text
-                            yield TurnEvent("token", {"text": text})
-
-                state = await graph.aget_state(config)
-                values = state.values or {}
-
-                for message_obj in values.get("messages", []):
-                    for call in getattr(message_obj, "tool_calls", None) or []:
-                        name = call.get("name")
+        emitted_tools: list[str] = []
+        streamed = ""
+        try:
+            async for part in graph.astream(
+                {
+                    "messages": [HumanMessage(content=message)],
+                    "customer_id": str(ctx.customer_id),
+                },
+                config=config,
+                stream_mode="messages",
+                version="v2",
+                durability="sync",
+            ):
+                unpacked = _unpack(part)
+                if unpacked is None:
+                    continue
+                chunk, _meta = unpacked
+                if isinstance(chunk, AIMessageChunk):
+                    for call in getattr(chunk, "tool_call_chunks", None) or []:
+                        name = call.get("name") if isinstance(call, dict) else None
                         if name and name not in emitted_tools:
                             emitted_tools.append(name)
                             yield TurnEvent("tool_call", {"name": name})
+                    text = _text_of(chunk)
+                    if text:
+                        streamed += text
+                        yield TurnEvent("token", {"text": text})
 
-                if state.interrupts:
-                    payload = state.interrupts[0].value
-                    await db.commit()
-                    self._record_turn(started, "awaiting_approval")
-                    yield TurnEvent("confirmation_required", dict(payload))
-                    return
+            state = await graph.aget_state(config)
+            values = state.values or {}
 
-                answer = _final_text(values) or streamed
+            for message_obj in values.get("messages", []):
+                for call in getattr(message_obj, "tool_calls", None) or []:
+                    name = call.get("name")
+                    if name and name not in emitted_tools:
+                        emitted_tools.append(name)
+                        yield TurnEvent("tool_call", {"name": name})
+
+            if state.interrupts:
+                payload = state.interrupts[0].value
+                # The write node committed the staged row in its own short
+                # transaction, so there is nothing left to save before the card.
+                self._record_turn(started, "awaiting_approval")
+                yield TurnEvent("confirmation_required", dict(payload))
+                return
+
+            answer = _final_text(values) or streamed
+            async with self.session_factory() as db:
                 receipts = await ReceiptRepo(db).list_for_session(session_id)
-                report = verify(answer, receipts)
-                if not report.ok:
-                    unsupported = [claim.text for claim in report.unsupported]
-                    logger.warning(
-                        "ungrounded_answer",
-                        extra={"extra_fields": {"unsupported": unsupported}},
-                    )
-                    yield TurnEvent("grounding_warning", {"unsupported": unsupported})
-                    if self.model is not None:
-                        answer = await repair_or_template(
-                            answer=answer,
-                            report=report,
-                            receipts=receipts,
-                            model=self.model,
-                        )
-                    yield TurnEvent("replace", {"text": answer})
-
-                await db.commit()
-                self._record_turn(started, "done")
-                yield TurnEvent("done", {"text": answer, "tool_calls": emitted_tools})
-            except Exception as exc:
-                await db.rollback()
-                self._record_turn(started, "error")
-                logger.exception("turn_failed")
-                yield TurnEvent(
-                    "error",
-                    {
-                        "code": getattr(exc, "code", "internal_error"),
-                        "message": getattr(exc, "message", None) or type(exc).__name__,
-                        "request_id": request_id,
-                    },
+            report = verify(answer, receipts)
+            if not report.ok:
+                unsupported = [claim.text for claim in report.unsupported]
+                logger.warning(
+                    "ungrounded_answer",
+                    extra={"extra_fields": {"unsupported": unsupported}},
                 )
+                yield TurnEvent("grounding_warning", {"unsupported": unsupported})
+                if self.model is not None:
+                    answer = await repair_or_template(
+                        answer=answer,
+                        report=report,
+                        receipts=receipts,
+                        model=self.model,
+                    )
+                yield TurnEvent("replace", {"text": answer})
+
+            self._record_turn(started, "done")
+            yield TurnEvent("done", {"text": answer, "tool_calls": emitted_tools})
+        except Exception as exc:
+            # No turn-wide transaction exists to roll back: tools commit their own
+            # short transactions, and a staged write is already durable by design.
+            self._record_turn(started, "error")
+            logger.exception("turn_failed")
+            yield TurnEvent(
+                "error",
+                {
+                    "code": getattr(exc, "code", "internal_error"),
+                    "message": getattr(exc, "message", None) or type(exc).__name__,
+                    "request_id": request_id,
+                },
+            )
 
     async def resolve_approval(
         self,
@@ -263,12 +266,36 @@ class AgentRuntime:
         request_id: str,
         customer_id: UUID | None = None,
     ) -> ApprovalResponse:
-        async with self.session_factory() as db:
-            ctx = await self._context(db, session_id, request_id, customer_id)
-            if self.model is None:
-                raise ModelUnavailable("model is not configured")
-            action = await PendingActionRepo(db).get_for_session(pending_action_id, session_id)
+        owner, sid = await self._resolve(session_id, customer_id)
+        if self.model is None:
+            raise ModelUnavailable("model is not configured")
+        ctx = self._context(owner, sid, request_id)
 
+        # Replay is answered without touching the graph: after the first approval the
+        # interrupt is gone, but a retried request must still return its ticket.
+        async with self.session_factory() as db:
+            peek = await PendingActionRepo(db).get_for_session(pending_action_id, sid)
+            if peek.status == "executed":
+                if peek.consume_key == idempotency_key:
+                    return ApprovalResponse(
+                        status="executed",
+                        ticket_id=(peek.result or {}).get("ticket_id"),
+                        replayed=True,
+                    )
+                raise Conflict("this action was already executed")
+            if peek.status == "rejected":
+                raise Conflict("this action was rejected")
+            if peek.status == "expired":
+                raise ApprovalExpired("this approval has expired")
+
+        graph = self._graph(ctx)
+        config = graph_config(str(sid), self.settings.max_tool_calls)
+        snapshot = await graph.aget_state(config)
+        if not snapshot.interrupts:
+            raise Conflict("no approval is pending for this session")
+
+        async with self.session_factory() as db:
+            action = await PendingActionRepo(db).get_for_session(pending_action_id, sid)
             if action.status == "executed":
                 if action.consume_key == idempotency_key:
                     return ApprovalResponse(
@@ -291,37 +318,24 @@ class AgentRuntime:
             if not hmac.compare_digest(preview_hash, action.args_hash):
                 raise ApprovalMismatch("approval does not match the staged action")
 
-            graph = self._graph(ctx)
-            config = graph_config(str(session_id), self.settings.max_tool_calls)
-            snapshot = await graph.aget_state(config)
-            if not snapshot.interrupts:
-                raise Conflict("no approval is pending for this session")
-
-            resume = {
-                "decision": decision,
-                "idempotency_key": idempotency_key,
-                "preview_hash": preview_hash,
-            }
+            # The single write transaction for this request. The ticket, the terminal
+            # state and the audit row commit together, before the graph is resumed.
+            # No connection is held while the model writes its reply.
             try:
-                result_state = await graph.ainvoke(
-                    Command(resume=resume),
-                    config=config,
-                    durability="sync",
+                result = await PendingActionRepo(db).consume(
+                    pending_id=pending_action_id,
+                    session_id=sid,
+                    decision=decision,
+                    consume_key=idempotency_key,
+                    preview_hash=preview_hash,
                 )
-                refreshed = await PendingActionRepo(db).get_for_session(
-                    pending_action_id, session_id
-                )
-                ticket_id = (refreshed.result or {}).get("ticket_id")
                 await AuditRepo(db).record(
-                    session_id=session_id,
-                    actor=f"customer:{ctx.customer_id}",
+                    session_id=sid,
+                    actor=f"customer:{owner}",
                     action=f"approval.{decision}",
                     target=str(pending_action_id),
-                    detail={"ticket_id": ticket_id, "status": refreshed.status},
+                    detail={"ticket_id": result.ticket_id, "status": result.status},
                 )
-                # The single commit for this request. Everything the graph flushed --
-                # the ticket, the terminal state, the audit row -- lands together or not
-                # at all.
                 await db.commit()
                 if self.metrics is not None:
                     self.metrics.observe_approval(decision)
@@ -335,38 +349,57 @@ class AgentRuntime:
                 logger.exception("approval_write_failed")
                 raise WriteFailed("the ticket could not be created; nothing was saved") from exc
 
-            reply = _final_text(result_state) if isinstance(result_state, dict) else ""
-            return ApprovalResponse(
-                status=refreshed.status,
-                ticket_id=ticket_id,
-                replayed=False,
-                reply=reply or None,
+        resume = {
+            "decision": decision,
+            "status": result.status,
+            "ticket_id": result.ticket_id,
+            "replayed": result.replayed,
+        }
+        try:
+            result_state = await graph.ainvoke(
+                Command(resume=resume),
+                config=config,
+                durability="sync",
             )
+        except Exception:
+            # The write is already committed; reporting failure would invite the
+            # client to retry a decision that succeeded.
+            logger.exception("approval_reply_failed")
+            return ApprovalResponse(
+                status=result.status,
+                ticket_id=result.ticket_id,
+                replayed=result.replayed,
+                reply=None,
+            )
+
+        reply = _final_text(result_state) if isinstance(result_state, dict) else ""
+        return ApprovalResponse(
+            status=result.status,
+            ticket_id=result.ticket_id,
+            replayed=result.replayed,
+            reply=reply or None,
+        )
 
     async def get_transcript(
         self, session_id: UUID, request_id: str, *, customer_id: UUID | None = None
     ) -> list[TranscriptMessage]:
-        async with self.session_factory() as db:
-            ctx = await self._context(db, session_id, request_id, customer_id)
-            graph = self._graph(ctx, model=None)
-            state = await graph.aget_state(
-                graph_config(str(session_id), self.settings.max_tool_calls)
-            )
-            values = state.values or {}
-            out: list[TranscriptMessage] = []
-            for message in values.get("messages", []):
-                if isinstance(message, HumanMessage):
-                    out.append(TranscriptMessage(role="user", content=_text_of(message)))
-                elif isinstance(message, AIMessage):
-                    calls = [call["name"] for call in getattr(message, "tool_calls", None) or []]
-                    text = _text_of(message)
-                    if text or calls:
-                        out.append(
-                            TranscriptMessage(role="assistant", content=text, tool_calls=calls)
-                        )
-                else:
-                    out.append(TranscriptMessage(role="tool", content=_json_preview(message)))
-            return out
+        owner, sid = await self._resolve(session_id, customer_id)
+        ctx = self._context(owner, sid, request_id)
+        graph = self._graph(ctx, model=None)
+        state = await graph.aget_state(graph_config(str(sid), self.settings.max_tool_calls))
+        values = state.values or {}
+        out: list[TranscriptMessage] = []
+        for message in values.get("messages", []):
+            if isinstance(message, HumanMessage):
+                out.append(TranscriptMessage(role="user", content=_text_of(message)))
+            elif isinstance(message, AIMessage):
+                calls = [call["name"] for call in getattr(message, "tool_calls", None) or []]
+                text = _text_of(message)
+                if text or calls:
+                    out.append(TranscriptMessage(role="assistant", content=text, tool_calls=calls))
+            else:
+                out.append(TranscriptMessage(role="tool", content=_json_preview(message)))
+        return out
 
 
 def _json_preview(message: Any) -> str:

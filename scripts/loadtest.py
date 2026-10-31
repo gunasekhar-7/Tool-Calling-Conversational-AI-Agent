@@ -16,9 +16,11 @@ import math
 import subprocess
 import sys
 import time
+from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 import httpx
 from langgraph.checkpoint.memory import InMemorySaver
@@ -51,28 +53,61 @@ class Run:
     baseline_seconds: float = 0.0
 
 
+class ThinkingModel(ScriptedModel):
+    """A scripted model with a simulated provider round trip.
+
+    Zero-think turns are CPU-bound on the event loop, which hides concurrency
+    effects. A wait stands in for the network so overlapping turns can be measured
+    without spending tokens or depending on a provider's mood.
+    """
+
+    think_seconds: float = 0.0
+
+    async def _astream(
+        self,
+        messages: list[Any],
+        stop: list[str] | None = None,
+        run_manager: Any = None,
+        **kwargs: Any,
+    ) -> AsyncIterator[Any]:
+        await asyncio.sleep(self.think_seconds)
+        for chunk in super()._stream(messages, stop, run_manager, **kwargs):
+            yield chunk
+
+
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--sessions", type=int, default=20)
     parser.add_argument("--messages", type=int, default=5, help="messages per session")
     parser.add_argument("--out", default="evals/report", help="directory for load.md")
     parser.add_argument("--database-url", default=None)
+    parser.add_argument(
+        "--think-ms",
+        type=int,
+        default=0,
+        help="simulated provider latency per turn (no provider is called)",
+    )
+    parser.add_argument(
+        "--pool-size", type=int, default=None, help="override DB_POOL_SIZE to expose pooling"
+    )
     return parser.parse_args(argv)
 
 
 def _settings(args: argparse.Namespace) -> Settings:
     base = Settings()  # type: ignore[call-arg]
-    return base.model_copy(
-        update={
-            "database_url": args.database_url or DEFAULT_EVAL_URL,
-            "checkpoint_dsn": None,
-            "environment": "load",
-            # The limiter is exercised by its own tests; a budget here would measure
-            # 429 latency instead of turn latency.
-            "rate_limit_per_min": 1_000_000,
-            "rate_limit_burst": 1_000_000,
-        }
-    )
+    updates: dict[str, Any] = {
+        "database_url": args.database_url or DEFAULT_EVAL_URL,
+        "checkpoint_dsn": None,
+        "environment": "load",
+        # The limiter is exercised by its own tests; a budget here would measure
+        # 429 latency instead of turn latency.
+        "rate_limit_per_min": 1_000_000,
+        "rate_limit_burst": 1_000_000,
+    }
+    if args.pool_size is not None:
+        updates["db_pool_size"] = args.pool_size
+        updates["db_max_overflow"] = 0
+    return base.model_copy(update=updates)
 
 
 def _percentile(values: list[float], fraction: float) -> float:
@@ -166,11 +201,13 @@ async def _run(args: argparse.Namespace, argv: list[str] | None) -> Run:
         str(CUSTOMER_A) if index % 2 == 0 else str(CUSTOMER_B) for index in range(args.sessions)
     ]
 
-    app = create_app(
-        settings,
-        model=ScriptedModel(responses=[say(ANSWER)]),
-        checkpointer=InMemorySaver(),
-    )
+    if args.think_ms > 0:
+        model: ScriptedModel = ThinkingModel(
+            responses=[say(ANSWER)], think_seconds=args.think_ms / 1000
+        )
+    else:
+        model = ScriptedModel(responses=[say(ANSWER)])
+    app = create_app(settings, model=model, checkpointer=InMemorySaver())
     transport = httpx.ASGITransport(app=app)
     run = Run()
     async with (
@@ -215,15 +252,21 @@ def render_markdown(run: Run, args: argparse.Namespace, argv: list[str] | None) 
         f"- Command: `{_command(argv)}`",
         f"- Commit: `{_commit()}`",
         f"- Generated: {datetime.now(UTC).isoformat(timespec='seconds')}",
-        "- Model: scripted stand-in (`evals/scripted.py`); no provider call is made",
+        (
+            "- Model: scripted stand-in (`evals/scripted.py`) with "
+            f"{args.think_ms} ms simulated provider latency; no provider call is made"
+            if args.think_ms
+            else "- Model: scripted stand-in (`evals/scripted.py`); no provider call is made"
+        ),
         "",
         "## What this measures",
         "",
         "End-to-end time from `POST /v1/sessions/{id}/messages` to the terminal SSE event,",
         "through the ASGI app: bearer auth, the Postgres-backed rate limiter, session",
         "lookup, the LangGraph turn with an in-memory checkpointer, grounding, and the",
-        "SSE framing. It does **not** measure model latency, because no model is called.",
-        "Treat these as the platform's own overhead.",
+        "SSE framing. It does **not** measure real model quality or latency. With",
+        "`--think-ms` the wait stands in for a provider round trip so overlapping",
+        "turns can be measured without a key or a bill.",
         "",
         "## Results",
         "",
@@ -262,15 +305,19 @@ def render_markdown(run: Run, args: argparse.Namespace, argv: list[str] | None) 
     lines += [
         "## What limits it",
         "",
-        "- Every in-flight turn holds one pooled Postgres connection from the first tool",
-        "  call to the commit, so concurrent turns are bounded by",
-        "  `DB_POOL_SIZE + DB_MAX_OVERFLOW` (10 + 10 by default).",
+        "- A turn holds no Postgres connection while the model streams. Each tool and",
+        "  the staging step borrow one only for their own short transaction, so the pool",
+        "  (`DB_POOL_SIZE + DB_MAX_OVERFLOW`) bounds concurrent database work, not",
+        "  concurrent conversations.",
         "- The tool-bound graph is rebuilt per turn (tools close over the request's",
-        "  session), which is a fixed ~20 ms of the turn and does not amortize.",
+        "  session), which is a fixed cost of the turn and does not amortize.",
         "- One process, one database, in-memory checkpointer: no network hop and no",
         "  Postgres checkpoint write. Real deployments are slower, not faster.",
-        "- The scripted model returns immediately, so real deployments add provider time",
-        "  to every turn (typically hundreds of milliseconds to seconds).",
+        "- With `--think-ms 0` the scripted model does synchronous CPU work on the",
+        "  event loop, so the concurrent row is dominated by one Python process rather",
+        "  than by the pool. Raise the think time to see turns overlap.",
+        "- With a simulated wait the turn releases both the loop and the pool; a turn",
+        "  holds a connection only for its own short tool/staging transactions.",
         "- Run it on the machine you are quoting from; absolute numbers are not portable.",
         "",
     ]

@@ -40,6 +40,7 @@ All series are per process. With more than one machine, sum across instances.
 | 409 | `approval_expired` | The TTL passed before the decision landed. No write happened | Re-ask the agent; it will stage a fresh action |
 | 409 | `approval_mismatch` | The `preview_hash` does not match the staged arguments | Re-render the preview from a fresh turn; never retry with the old hash |
 | 409 | `conflict` | The action was already executed with a different idempotency key, or already rejected | Treat as final. Fetch the ticket to confirm |
+| 413 | `request_too_large` | `Content-Length` exceeds `MAX_REQUEST_BYTES` (64 KiB) | Fix the request; this is refused before parsing |
 | 422 | `invalid_input` | Empty, too long (`MAX_MESSAGE_CHARS`), or a malformed body | Fix the request |
 | 429 | `rate_limited` | Token bucket empty for this customer | Wait `Retry-After` seconds |
 | 503 | `model_unavailable` | `LLM_MODEL` / `OPENAI_API_KEY` missing, or no model could be built | Operator action, not a client retry loop |
@@ -105,15 +106,16 @@ stays; cancel it in the data, not in the deployment.
 
 ## 7. Capacity
 
-- One in-flight turn holds one pooled connection from its first tool call to the
-  commit, so concurrent turns per process are bounded by
-  `DB_POOL_SIZE + DB_MAX_OVERFLOW` (10 + 10). Above that, turns queue, and queueing
-  shows up as `agent_turn_seconds` growth without error rate growth.
+- A turn holds no Postgres connection while the model streams. Each tool, the
+  staging step and the approval commit borrow one for their own short transaction,
+  so `DB_POOL_SIZE + DB_MAX_OVERFLOW` bounds concurrent database work rather than
+  concurrent conversations. Raising it does not make a single query faster.
 - Each turn rebuilds the tool-bound graph (tools close over the request's session),
   a fixed cost that does not amortize. `evals/report/load.md` records what that
   costs on the machine that generated it.
-- Postgres connections are the scarce resource, not CPU: size `DB_POOL_SIZE` against
-  the database's `max_connections` divided by the number of machines.
+- With a real model the dominant cost is provider latency, which overlaps across
+  turns; with the scripted stand-in the turn is CPU-bound on one event loop, so the
+  load numbers without `--think-ms` understate concurrency, not overstate it.
 
 ## 8. Reading an evaluation report
 

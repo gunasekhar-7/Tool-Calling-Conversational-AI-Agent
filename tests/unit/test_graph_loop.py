@@ -27,10 +27,11 @@ def _dummy_tool() -> StructuredTool:
 
 
 def _ctx() -> ToolContext:
+    # These tests bind dummy tools, so no tool ever asks the context for a session.
     return ToolContext(
         customer_id=uuid.uuid4(),
         session_id=uuid.uuid4(),
-        db=None,  # type: ignore[arg-type]
+        session_factory=None,  # type: ignore[arg-type]
         request_id="test",
     )
 

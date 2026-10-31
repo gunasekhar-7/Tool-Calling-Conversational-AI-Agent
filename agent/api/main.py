@@ -7,6 +7,8 @@ from contextlib import asynccontextmanager
 from typing import Any
 
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from langchain_core.language_models.chat_models import BaseChatModel
 from psycopg_pool import AsyncConnectionPool
 
@@ -103,7 +105,27 @@ def create_app(
         rid = request.headers.get("x-request-id") or uuid.uuid4().hex
         token = request_id_var.set(rid)
         try:
-            response = await call_next(request)
+            declared = request.headers.get("content-length")
+            too_large = False
+            if declared is not None:
+                try:
+                    too_large = int(declared) > resolved.max_request_bytes
+                except ValueError:
+                    too_large = False
+            if too_large:
+                response = JSONResponse(
+                    status_code=413,
+                    content={
+                        "code": "request_too_large",
+                        "message": (
+                            "Request body exceeds the configured limit of "
+                            f"{resolved.max_request_bytes} bytes."
+                        ),
+                        "request_id": rid,
+                    },
+                )
+            else:
+                response = await call_next(request)
         finally:
             request_id_var.reset(token)
         response.headers["X-Request-ID"] = rid
@@ -112,6 +134,14 @@ def create_app(
         label = getattr(route, "path", None) or "unmatched"
         request.app.state.metrics.observe_request(label, request.method, response.status_code)
         return response
+
+    if resolved.cors_origins:
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=resolved.cors_origins,
+            allow_methods=["GET", "POST"],
+            allow_headers=["Authorization", "Content-Type", "X-Request-ID"],
+        )
 
     install_error_handlers(app)
     app.include_router(health.router)

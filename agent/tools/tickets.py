@@ -18,21 +18,28 @@ class TicketIdArgs(BaseModel):
 
 
 async def get_ticket(args: TicketIdArgs, ctx: ToolContext) -> dict[str, object]:
-    try:
-        ticket = await TicketsRepo(ctx.db).get_for_customer(args.ticket_id, ctx.customer_id)
-    except NotFound:
-        # Record the observed absence so a grounded reply may name the reference.
-        await record_receipt(
-            ctx, "get_ticket", args.model_dump(), {"ticket_id": args.ticket_id, "found": False}
-        )
-        return {
-            "ok": False,
-            "error": "not_found",
-            "message": "No ticket with that reference belongs to this customer.",
-        }
-    payload = serialize_ticket(ticket)
-    await record_receipt(ctx, "get_ticket", args.model_dump(), {"ticket": payload})
-    return {"ok": True, "ticket": payload}
+    async with ctx.session() as db:
+        try:
+            ticket = await TicketsRepo(db).get_for_customer(args.ticket_id, ctx.customer_id)
+        except NotFound:
+            # Record the observed absence so a grounded reply may name the reference.
+            await record_receipt(
+                db,
+                ctx,
+                "get_ticket",
+                args.model_dump(),
+                {"ticket_id": args.ticket_id, "found": False},
+            )
+            await db.commit()
+            return {
+                "ok": False,
+                "error": "not_found",
+                "message": "No ticket with that reference belongs to this customer.",
+            }
+        payload = serialize_ticket(ticket)
+        await record_receipt(db, ctx, "get_ticket", args.model_dump(), {"ticket": payload})
+        await db.commit()
+        return {"ok": True, "ticket": payload}
 
 
 READ_TICKET_TOOLS = [

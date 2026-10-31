@@ -128,17 +128,21 @@ scale it would add a service to operate for no measured gain.
 If the ticket commit happened inside a graph node, a later failure would leave a
 ticket behind while the caller saw an error.
 
-**Decision.** Repositories `flush()`, they never commit. The graph stages and the
-runtime commits once, at the request boundary (`AgentRuntime.resolve_approval`).
-The consume step locks the row `FOR UPDATE`, re-validates the approved preview hash,
-and relies on unique `stage_key` / `consume_key` constraints for idempotency.
+**Decision.** Repositories `flush()`, they never commit. The approval endpoint owns
+the single commit (`AgentRuntime.resolve_approval`): it consumes the row, creates
+the ticket and writes the audit row in one transaction, then resumes the graph to
+render the reply. The consume step locks the row `FOR UPDATE`, re-validates the
+approved preview hash, and relies on unique `stage_key` / `consume_key` constraints
+for idempotency. Staging is its own short transaction before the pause.
 
 **Consequence.** "Nothing was saved" is a true statement when the API returns
 `write_failed`, and a retried approval replays the first result instead of creating a
-second ticket. The cost is that a long-running node holds a transaction open, so
-connection pool size becomes a concurrency limit (documented in `docs/runbook.md`).
+second ticket. The transaction closes before the model writes its answer, so no
+connection is held across a provider call. The cost is that an approval whose reply
+fails returns the committed ticket with a generic reply instead of pretending the
+write failed — the correct direction for a decision a human already made.
 
-**What would change it.** Moving the commit into the node and adding a
-reconciliation job would raise throughput, at the price of a window where a ticket
-exists and the client believes it did not. For a support tool that trades the wrong
-way.
+**What would change it.** Committing inside the graph node would let the model's
+reply roll the ticket back, which is worse: a human approved a write and the system
+would discard it because a later prose step failed. Only a separate reconciliation
+job could justify that shape.
