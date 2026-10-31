@@ -1,6 +1,6 @@
 # Agent evaluation report
 
-Generated: `2026-10-31T06:52:20+00:00`
+Generated: `2026-10-31T06:59:34+00:00`
 
 ## Provenance
 
@@ -10,14 +10,11 @@ Generated: `2026-10-31T06:52:20+00:00`
 | Model | `scripted replay` |
 | Temperature | `0.0` |
 | Prompt version | `2026-10-30` |
-| Commit | `f8a869b499a34559430e471341fd86b2cc06271a` |
+| Commit | `19e3e16a3a543778495c683de2d7c6e081ff5c07` |
 | Scenario file sha256 | `7f525392371cb6b105ede696379b2087637f507e6ff0a1cf5253e713b9929c1c` |
 | Graded scenarios | 25 |
 | Trial runs (n) | 75 |
 | Interval | 95% Wilson score, reported as the two numbers in brackets below |
-
-> **Warning:** the worktree had uncommitted changes during this run.
-> Numbers from this report must not be quoted until the config is committed.
 
 ## Headline
 
@@ -25,7 +22,7 @@ Generated: `2026-10-31T06:52:20+00:00`
 | --- | --- | --- | --- | --- |
 | Task success rate (`pass^1`) | **100.0%** | 95.1% – 100.0% | 75 | share of trial runs that fully succeeded |
 | `pass^3` | **100.0%** | 86.7% – 100.0% | 25 | scenarios that succeeded on every trial |
-| Turn latency p50 / p95 | 111.3 ms / 130.8 ms | — | 75 | per user message |
+| Turn latency p50 / p95 | 107.0 ms / 126.8 ms | — | 75 | per user message |
 
 ## By category
 
