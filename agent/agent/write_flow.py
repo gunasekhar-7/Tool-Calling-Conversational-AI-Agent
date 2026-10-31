@@ -13,6 +13,7 @@ from agent.agent.guardrails.policy import authorize
 from agent.agent.state import AgentState
 from agent.db.repositories import ExecutionResult, PendingActionRepo
 from agent.errors import NotFound
+from agent.observability import record_tool
 from agent.tools.context import ToolContext
 from agent.tools.tickets_write import CreateTicketArgs, stage_create_ticket
 
@@ -79,11 +80,13 @@ def make_write_node(
 
         # Staging is idempotent on the tool-call id because LangGraph re-runs this
         # node from the top when the interrupt is resumed.
+        stage_key = f"{ctx.session_id}:{call['id']}"
+        already_staged = await PendingActionRepo(ctx.db).exists_for_stage_key(stage_key)
         try:
             action, preview = await stage_create_ticket(
                 args,
                 ctx,
-                stage_key=f"{ctx.session_id}:{call['id']}",
+                stage_key=stage_key,
                 ttl_seconds=ttl_seconds,
             )
         except NotFound:
@@ -101,6 +104,8 @@ def make_write_node(
                     ]
                 },
             )
+        if not already_staged:
+            record_tool(ctx, "create_ticket", "staged")
         logger.info(
             "write_staged",
             extra={
@@ -146,6 +151,7 @@ def make_write_node(
             "ticket_id": result.ticket_id,
             "replayed": result.replayed,
         }
+        record_tool(ctx, "create_ticket", result.status)
         logger.info(
             "write_resolved",
             extra={

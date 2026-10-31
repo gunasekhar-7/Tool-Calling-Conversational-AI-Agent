@@ -1,9 +1,6 @@
 from __future__ import annotations
 
-import time
-
 from agent.agent.guardrails.input_guard import screen_input
-from agent.agent.guardrails.rate_limit import RateLimiter, TokenBucket
 
 
 def test_instruction_override_is_blocked() -> None:
@@ -50,28 +47,3 @@ def test_normal_message_is_allowed() -> None:
     result = screen_input("Where is order ORD-1001?")
     assert result.allowed is True
     assert result.sanitized == "Where is order ORD-1001?"
-
-
-def test_token_bucket_refuses_after_burst() -> None:
-    bucket = TokenBucket(rate_per_min=6, burst=2)
-    assert bucket.try_consume() is True
-    assert bucket.try_consume() is True
-    assert bucket.try_consume() is False
-    assert bucket.retry_after_seconds() >= 1
-
-
-def test_rate_limiter_is_per_key() -> None:
-    limiter = RateLimiter(rate_per_min=60, burst=1)
-    allowed, _ = limiter.check("a")
-    assert allowed is True
-    blocked, retry = limiter.check("a")
-    assert blocked is False and retry >= 1
-    other, _ = limiter.check("b")
-    assert other is True
-
-
-def test_token_bucket_refills_over_time() -> None:
-    bucket = TokenBucket(rate_per_min=6000, burst=1)
-    assert bucket.try_consume() is True
-    time.sleep(0.11)
-    assert bucket.try_consume() is True

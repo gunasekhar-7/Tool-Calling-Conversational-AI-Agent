@@ -3,6 +3,7 @@ from __future__ import annotations
 import hmac
 import json
 import logging
+import time
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -83,11 +84,18 @@ class AgentRuntime:
         model: BaseChatModel | None,
         checkpointer: Any,
         session_factory: async_sessionmaker[AsyncSession],
+        metrics: Any | None = None,
     ) -> None:
         self.settings = settings
         self.model = model
         self.checkpointer = checkpointer
         self.session_factory = session_factory
+        self.metrics = metrics
+
+    def _record_turn(self, started: float, outcome: str) -> None:
+        if self.metrics is None:
+            return
+        self.metrics.turn_seconds.labels(outcome=outcome).observe(time.perf_counter() - started)
 
     async def ensure_session(self, session_id: UUID, *, customer_id: UUID | None = None) -> None:
         """Resolve the session and, when a caller is given, enforce ownership.
@@ -131,6 +139,7 @@ class AgentRuntime:
             session_id=session.id,
             db=db,
             request_id=request_id,
+            metrics=self.metrics,
         )
 
     def _graph(self, ctx: ToolContext, *, model: BaseChatModel | None = None) -> Any:
@@ -153,6 +162,7 @@ class AgentRuntime:
         request_id: str,
         customer_id: UUID | None = None,
     ) -> AsyncIterator[TurnEvent]:
+        started = time.perf_counter()
         async with self.session_factory() as db:
             # Ownership is answered before capability: a foreign session is 404 even
             # when the service has no model configured.
@@ -203,6 +213,7 @@ class AgentRuntime:
                 if state.interrupts:
                     payload = state.interrupts[0].value
                     await db.commit()
+                    self._record_turn(started, "awaiting_approval")
                     yield TurnEvent("confirmation_required", dict(payload))
                     return
 
@@ -226,9 +237,11 @@ class AgentRuntime:
                     yield TurnEvent("replace", {"text": answer})
 
                 await db.commit()
+                self._record_turn(started, "done")
                 yield TurnEvent("done", {"text": answer, "tool_calls": emitted_tools})
             except Exception as exc:
                 await db.rollback()
+                self._record_turn(started, "error")
                 logger.exception("turn_failed")
                 yield TurnEvent(
                     "error",
@@ -310,6 +323,8 @@ class AgentRuntime:
                 # the ticket, the terminal state, the audit row -- lands together or not
                 # at all.
                 await db.commit()
+                if self.metrics is not None:
+                    self.metrics.observe_approval(decision)
             except DomainError:
                 await db.rollback()
                 raise

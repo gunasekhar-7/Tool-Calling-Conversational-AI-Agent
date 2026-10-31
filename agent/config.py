@@ -32,6 +32,11 @@ class Settings(BaseSettings):
     max_message_chars: int = Field(default=2000, ge=1)
     rate_limit_per_min: int = Field(default=30, ge=1)
     rate_limit_burst: int = Field(default=10, ge=1)
+    # An in-flight turn holds one connection for its whole duration (tools, the
+    # write staging, the commit), so this pair is also the per-process ceiling on
+    # concurrent turns. See docs/runbook.md.
+    db_pool_size: int = Field(default=10, ge=1)
+    db_max_overflow: int = Field(default=10, ge=0)
     log_level: str = "INFO"
     sse_keepalive_seconds: float = 15.0
     cors_origins: list[str] = []

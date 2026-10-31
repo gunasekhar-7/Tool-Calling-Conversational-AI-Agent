@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request, Response
 from fastapi.responses import JSONResponse
 
 from agent import __version__
+from agent.api.deps import Principal, require_principal
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -30,3 +31,14 @@ async def readyz(request: Request) -> JSONResponse:
         logger.warning("readyz_db_unavailable", extra={"extra_fields": {"error": str(exc)}})
         return JSONResponse(status_code=503, content={"status": "db_unavailable"})
     return JSONResponse(status_code=200, content={"status": "ready"})
+
+
+@router.get("/metrics")
+async def metrics(request: Request, principal: Principal = Depends(require_principal)) -> Response:
+    """Prometheus scrape target.
+
+    Bearer-protected like every other endpoint: series names and customer-level
+    throughput are not public, and an open scrape endpoint is an easy amplifier.
+    """
+    body, content_type = request.app.state.metrics.render()
+    return Response(content=body, headers={"Content-Type": content_type})

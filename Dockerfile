@@ -7,26 +7,21 @@ COPY --from=ghcr.io/astral-sh/uv:0.9.9 /uv /usr/local/bin/uv
 
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
-    UV_PYTHON_DOWNLOADS=never
+    UV_PYTHON_DOWNLOADS=never \
+    UV_PROJECT_ENVIRONMENT=/opt/venv
 
 WORKDIR /app
 
-# Dependencies first so a source-only change does not reinstall them.
-COPY pyproject.toml ./
-RUN python -m venv /opt/venv \
-    && uv pip install --python /opt/venv/bin/python --no-cache \
-        "fastapi>=0.115" "uvicorn[standard]>=0.30" "pydantic>=2.8" \
-        "pydantic-settings>=2.4" "sqlalchemy[asyncio]>=2.0" \
-        "psycopg[binary,pool]>=3.2" "alembic>=1.13" "langgraph>=1.2,<2" \
-        "langgraph-checkpoint-postgres>=2.0" "langchain-core>=1.0" \
-        "langchain-openai>=1.0" "httpx>=0.27"
+# One source of truth for versions: the committed lockfile, not a copy of the
+# dependency list that drifts from pyproject.toml.
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-dev --no-install-project
 
-# The application itself, without dev extras or the dashboard's Streamlit.
 COPY agent ./agent
 COPY migrations ./migrations
 COPY scripts ./scripts
 COPY alembic.ini ./
-RUN uv pip install --python /opt/venv/bin/python --no-cache --no-deps .
+RUN uv sync --frozen --no-dev
 
 # ---------- runtime ----------
 FROM python:3.12-slim AS runtime

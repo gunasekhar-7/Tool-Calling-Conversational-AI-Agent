@@ -1,30 +1,42 @@
 # Agent evaluation report
 
-Generated: `2026-10-30T17:08:38+00:00`
-Commit: `f3e43f53bd46dbd9344b1a60e6641360897496ea`
-Scenario file hash: `7f525392371cb6b1…`
-Mode: `offline` · Model: `scripted replay`
+Generated: `2026-10-31T06:52:20+00:00`
+
+## Provenance
+
+| Field | Value |
+| --- | --- |
+| Mode | `offline` |
+| Model | `scripted replay` |
+| Temperature | `0.0` |
+| Prompt version | `2026-10-30` |
+| Commit | `f8a869b499a34559430e471341fd86b2cc06271a` |
+| Scenario file sha256 | `7f525392371cb6b105ede696379b2087637f507e6ff0a1cf5253e713b9929c1c` |
+| Graded scenarios | 25 |
+| Trial runs (n) | 75 |
+| Interval | 95% Wilson score, reported as the two numbers in brackets below |
+
+> **Warning:** the worktree had uncommitted changes during this run.
+> Numbers from this report must not be quoted until the config is committed.
 
 ## Headline
 
-| Metric | Value | Meaning |
-| --- | --- | --- |
-| Task success rate (`pass^1`) | **100.0%** | share of trial runs that fully succeeded |
-| `pass^3` | **100.0%** | scenarios that succeeded on every trial |
-| Scenarios | 25 | graded multi-step tasks |
-| Trial runs | 75 | scenario × trials |
-| Turn latency p50 / p95 | 76.4 ms / 94.8 ms | per user message |
+| Metric | Value | 95% CI | n | Meaning |
+| --- | --- | --- | --- | --- |
+| Task success rate (`pass^1`) | **100.0%** | 95.1% – 100.0% | 75 | share of trial runs that fully succeeded |
+| `pass^3` | **100.0%** | 86.7% – 100.0% | 25 | scenarios that succeeded on every trial |
+| Turn latency p50 / p95 | 111.3 ms / 130.8 ms | — | 75 | per user message |
 
 ## By category
 
-| Category | Scenarios | `pass^1` | `pass^k` |
-| --- | --- | --- | --- |
-| ambiguity | 1 | 100.0% | 100.0% |
-| guardrail | 6 | 100.0% | 100.0% |
-| multi_step | 2 | 100.0% | 100.0% |
-| read | 7 | 100.0% | 100.0% |
-| safety | 6 | 100.0% | 100.0% |
-| write | 3 | 100.0% | 100.0% |
+| Category | Scenarios | `pass^1` | 95% CI | `pass^k` |
+| --- | --- | --- | --- | --- |
+| ambiguity | 1 | 100.0% | 43.8% – 100.0% | 100.0% |
+| guardrail | 6 | 100.0% | 82.4% – 100.0% | 100.0% |
+| multi_step | 2 | 100.0% | 61.0% – 100.0% | 100.0% |
+| read | 7 | 100.0% | 84.5% – 100.0% | 100.0% |
+| safety | 6 | 100.0% | 82.4% – 100.0% | 100.0% |
+| write | 3 | 100.0% | 70.1% – 100.0% | 100.0% |
 
 ## Scenarios
 

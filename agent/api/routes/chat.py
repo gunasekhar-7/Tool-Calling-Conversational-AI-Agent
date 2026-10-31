@@ -33,16 +33,21 @@ async def send_message(
     if runtime.model is None:
         raise ModelUnavailable("LLM_MODEL and OPENAI_API_KEY must be configured")
 
+    metrics = request.app.state.metrics
     screen = screen_input(body.message, settings.max_message_chars)
     if not screen.allowed:
+        metrics.observe_block(screen.reason)
         if screen.reason in {"message_too_long", "empty_message"}:
             raise InvalidInput(f"message rejected: {screen.reason}")
         raise PolicyDenied(f"message rejected: {screen.reason}")
 
     limiter = request.app.state.rate_limiter
-    allowed, retry_after = limiter.check(str(session_id))
+    async with runtime.session_factory() as limit_db:
+        allowed, retry_after = await limiter.check(limit_db, principal.customer_id)
+        await limit_db.commit()
     if not allowed:
-        raise RateLimited("too many messages for this session", retry_after=retry_after)
+        metrics.observe_block("rate_limited")
+        raise RateLimited("too many messages for this account", retry_after=retry_after)
 
     stream = with_keepalive(
         runtime.stream_turn(

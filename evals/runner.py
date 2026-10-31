@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 import subprocess
 import time
 import uuid
@@ -15,6 +16,7 @@ from langgraph.checkpoint.memory import InMemorySaver
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker
 
+from agent.agent.prompts import SYSTEM_PROMPT_VERSION
 from agent.api.main import create_app
 from agent.config import Settings
 from agent.db.models import Base, PendingAction, Ticket
@@ -404,6 +406,21 @@ def config_fingerprint(scenario_file: Path) -> dict[str, Any]:
     }
 
 
+def wilson_interval(successes: int, total: int, z: float = 1.96) -> tuple[float, float]:
+    """Wilson score interval for a proportion.
+
+    A bare "100%" over 75 runs is not a measurement anyone should quote; its lower
+    bound is what an interviewer will ask about. This returns both ends.
+    """
+    if total <= 0:
+        return (0.0, 0.0)
+    p = successes / total
+    denominator = 1 + (z * z) / total
+    centre = (p + (z * z) / (2 * total)) / denominator
+    margin = z * math.sqrt(p * (1 - p) / total + (z * z) / (4 * total * total)) / denominator
+    return (max(0.0, centre - margin), min(1.0, centre + margin))
+
+
 def _percentile(values: list[float], fraction: float) -> float:
     if not values:
         return 0.0
@@ -437,10 +454,13 @@ def summarise(results: list[TrialResult], trials: int) -> dict[str, Any]:
     for bucket in categories.values():
         bucket["pass_1"] = bucket["trial_successes"] / bucket["trial_runs"]
         bucket["pass_k"] = bucket["all_trials_passed"] / bucket["scenarios"]
+        bucket["pass_1_ci"] = list(wilson_interval(bucket["trial_successes"], bucket["trial_runs"]))
 
     return {
         "tsr_pass_1": passed_trials / total_trials if total_trials else 0.0,
+        "tsr_ci": list(wilson_interval(passed_trials, total_trials)),
         "pass_k": all_trials_passed / len(by_scenario) if by_scenario else 0.0,
+        "pass_k_ci": list(wilson_interval(all_trials_passed, len(by_scenario))),
         "trials_per_scenario": trials,
         "scenarios": len(by_scenario),
         "trial_runs": total_trials,
@@ -470,12 +490,25 @@ def render_markdown(
     generated_at: datetime,
 ) -> str:
     lines: list[str] = []
+    tsr_low, tsr_high = summary["tsr_ci"]
+    k_low, k_high = summary["pass_k_ci"]
     lines.append("# Agent evaluation report")
     lines.append("")
     lines.append(f"Generated: `{generated_at.isoformat(timespec='seconds')}`")
-    lines.append(f"Commit: `{fingerprint['commit']}`")
-    lines.append(f"Scenario file hash: `{fingerprint['scenario_sha256'][:16]}…`")
-    lines.append(f"Mode: `{mode}` · Model: `{settings.llm_model or 'scripted replay'}`")
+    lines.append("")
+    lines.append("## Provenance")
+    lines.append("")
+    lines.append("| Field | Value |")
+    lines.append("| --- | --- |")
+    lines.append(f"| Mode | `{mode}` |")
+    lines.append(f"| Model | `{settings.llm_model or 'scripted replay'}` |")
+    lines.append(f"| Temperature | `{settings.llm_temperature}` |")
+    lines.append(f"| Prompt version | `{SYSTEM_PROMPT_VERSION}` |")
+    lines.append(f"| Commit | `{fingerprint['commit']}` |")
+    lines.append(f"| Scenario file sha256 | `{fingerprint['scenario_sha256']}` |")
+    lines.append(f"| Graded scenarios | {summary['scenarios']} |")
+    lines.append(f"| Trial runs (n) | {summary['trial_runs']} |")
+    lines.append("| Interval | 95% Wilson score, reported as the two numbers in brackets below |")
     if fingerprint["dirty_worktree"]:
         lines.append("")
         lines.append("> **Warning:** the worktree had uncommitted changes during this run.")
@@ -483,30 +516,32 @@ def render_markdown(
     lines.append("")
     lines.append("## Headline")
     lines.append("")
-    lines.append("| Metric | Value | Meaning |")
-    lines.append("| --- | --- | --- |")
+    lines.append("| Metric | Value | 95% CI | n | Meaning |")
+    lines.append("| --- | --- | --- | --- | --- |")
     lines.append(
         f"| Task success rate (`pass^1`) | **{summary['tsr_pass_1']:.1%}** "
+        f"| {tsr_low:.1%} – {tsr_high:.1%} | {summary['trial_runs']} "
         "| share of trial runs that fully succeeded |"
     )
     lines.append(
         f"| `pass^{summary['trials_per_scenario']}` | **{summary['pass_k']:.1%}** "
+        f"| {k_low:.1%} – {k_high:.1%} | {summary['scenarios']} "
         "| scenarios that succeeded on every trial |"
     )
-    lines.append(f"| Scenarios | {summary['scenarios']} | graded multi-step tasks |")
-    lines.append(f"| Trial runs | {summary['trial_runs']} | scenario × trials |")
     lines.append(
         f"| Turn latency p50 / p95 | {summary['latency_ms']['p50']} ms / "
-        f"{summary['latency_ms']['p95']} ms | per user message |"
+        f"{summary['latency_ms']['p95']} ms | — | {summary['trial_runs']} | per user message |"
     )
     lines.append("")
     lines.append("## By category")
     lines.append("")
-    lines.append("| Category | Scenarios | `pass^1` | `pass^k` |")
-    lines.append("| --- | --- | --- | --- |")
+    lines.append("| Category | Scenarios | `pass^1` | 95% CI | `pass^k` |")
+    lines.append("| --- | --- | --- | --- | --- |")
     for name, bucket in sorted(summary["categories"].items()):
+        low, high = bucket["pass_1_ci"]
         lines.append(
-            f"| {name} | {bucket['scenarios']} | {bucket['pass_1']:.1%} | {bucket['pass_k']:.1%} |"
+            f"| {name} | {bucket['scenarios']} | {bucket['pass_1']:.1%} "
+            f"| {low:.1%} – {high:.1%} | {bucket['pass_k']:.1%} |"
         )
     lines.append("")
     lines.append("## Scenarios")
@@ -559,6 +594,13 @@ def render_markdown(
             "Offline mode replays a scripted model plan, so these numbers measure the "
             "deterministic pipeline — routing, guardrails, approval, persistence — not "
             "model quality. Run `--mode live` with a key to measure the model itself."
+        )
+        lines.append("")
+    else:
+        lines.append(
+            "Live mode calls the configured provider, so these numbers include model "
+            "behaviour and provider variance. The interval reflects the 25-scenario "
+            "sample, not the model's full range of inputs."
         )
         lines.append("")
     return "\n".join(lines)

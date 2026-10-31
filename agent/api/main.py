@@ -16,6 +16,7 @@ from agent.api.routes import approvals, chat, health, sessions
 from agent.config import Settings, get_settings
 from agent.db.session import create_engine, create_session_factory
 from agent.logging import configure_logging, request_id_var
+from agent.observability import Metrics
 from agent.runtime import AgentRuntime
 
 logger = logging.getLogger(__name__)
@@ -32,7 +33,11 @@ def create_app(
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-        engine = create_engine(resolved.database_url)
+        engine = create_engine(
+            resolved.database_url,
+            pool_size=resolved.db_pool_size,
+            max_overflow=resolved.db_max_overflow,
+        )
         factory = create_session_factory(engine)
         pool: AsyncConnectionPool | None = None
         saver = checkpointer
@@ -60,12 +65,12 @@ def create_app(
         app.state.engine = engine
         app.state.session_factory = factory
         app.state.checkpointer = saver
-        app.state.rate_limiter = RateLimiter(resolved.rate_limit_per_min, resolved.rate_limit_burst)
         app.state.runtime = AgentRuntime(
             settings=resolved,
             model=selected_model,
             checkpointer=saver,
             session_factory=factory,
+            metrics=app.state.metrics,
         )
         logger.info(
             "service_started",
@@ -86,6 +91,12 @@ def create_app(
         redoc_url=None,
     )
     app.state.settings = resolved
+    # Built outside the lifespan so a route can report a metric even when the
+    # request never reaches a database-backed startup path.
+    app.state.metrics = Metrics()
+    app.state.rate_limiter = RateLimiter(
+        rate_per_min=resolved.rate_limit_per_min, burst=resolved.rate_limit_burst
+    )
 
     @app.middleware("http")
     async def request_context(request: Request, call_next: Any) -> Any:
@@ -96,6 +107,10 @@ def create_app(
         finally:
             request_id_var.reset(token)
         response.headers["X-Request-ID"] = rid
+        route = request.scope.get("route")
+        # Matched template only: raw paths would make the label cardinality unbounded.
+        label = getattr(route, "path", None) or "unmatched"
+        request.app.state.metrics.observe_request(label, request.method, response.status_code)
         return response
 
     install_error_handlers(app)

@@ -32,8 +32,12 @@ PRIORITY_COLOUR = {"high": "#b42318", "normal": "#475467", "low": "#667085"}
 
 
 def _setting(name: str, default: str = "") -> str:
-    if name in st.secrets:
-        return str(st.secrets[name])
+    # A fresh checkout has no .streamlit/secrets.toml; asking for it would raise.
+    try:
+        if name in st.secrets:
+            return str(st.secrets[name])
+    except FileNotFoundError:
+        pass
     return os.environ.get(name, default)
 
 
@@ -67,8 +71,7 @@ def api() -> AgentAPI | None:
 def _reset_session() -> None:
     for key in ("session_id", "messages", "pending", "turn_error", "resolved"):
         st.session_state.pop(key, None)
-    st.session_state.messages = []
-    st.session_state.resolved = None
+    _state_defaults()
 
 
 def _state_defaults() -> None:
@@ -154,9 +157,22 @@ def _resolve(pending: dict[str, Any], decision: str, client: AgentAPI) -> None:
         if result.get("status") == "executed"
         else "Understood — I won't create that ticket."
     )
-    st.session_state.messages.append(
-        {"role": "assistant", "content": reply, "tools": [], "warning": None}
-    )
+    for index in range(len(st.session_state.messages) - 1, -1, -1):
+        message = st.session_state.messages[index]
+        if message.get("role") == "assistant" and message.get("content") == (
+            "_Waiting for your approval._"
+        ):
+            st.session_state.messages[index] = {
+                "role": "assistant",
+                "content": reply,
+                "tools": [],
+                "warning": None,
+            }
+            break
+    else:
+        st.session_state.messages.append(
+            {"role": "assistant", "content": reply, "tools": [], "warning": None}
+        )
     st.rerun()
 
 
@@ -330,7 +346,7 @@ if error := st.session_state.get("turn_error"):
     st.error(f"{message} {hint}" + (f" (request {request_id})" if request_id else ""))
     st.session_state.turn_error = None
 
-if not st.session_state.messages and not st.session_state.pending:
+if not st.session_state.messages and not st.session_state.get("pending"):
     st.markdown("#### Try one of these")
     columns = st.columns(len(EXAMPLES))
     for column, (label, prompt) in zip(columns, EXAMPLES, strict=True):

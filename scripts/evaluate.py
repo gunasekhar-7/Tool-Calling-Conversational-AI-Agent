@@ -76,6 +76,35 @@ class Artifacts:
 
 async def _run(args: argparse.Namespace) -> Artifacts | int:
     settings = _settings(args)
+
+    live_model = None
+    if args.mode == "live":
+        # Validate before touching the database: a missing key must not leave a
+        # freshly created database behind, and must not look like a 0% result.
+        if not settings.has_model_credentials:
+            print(
+                "live mode needs LLM_MODEL and OPENAI_API_KEY in the environment",
+                file=sys.stderr,
+            )
+            return 2
+        if args.trials < 2:
+            print(
+                "live mode needs --trials 2 or more: pass^k is undefined for a single trial",
+                file=sys.stderr,
+            )
+            return 2
+        from agent.agent.llm import build_chat_model
+
+        try:
+            live_model = build_chat_model(settings)
+        except ModelUnavailable as exc:  # pragma: no cover - provider configuration
+            print(f"the model could not be built: {exc}", file=sys.stderr)
+            return 2
+        print(
+            f"live mode: model={settings.llm_model} temperature={settings.llm_temperature} "
+            f"trials={args.trials}"
+        )
+
     ensure_database(settings.database_url)
 
     selected = SCENARIOS
@@ -85,16 +114,6 @@ async def _run(args: argparse.Namespace) -> Artifacts | int:
         missing = wanted - {scenario.id for scenario in SCENARIOS}
         if missing:
             print(f"unknown scenario id(s): {', '.join(sorted(missing))}", file=sys.stderr)
-            return 2
-
-    live_model = None
-    if args.mode == "live":
-        from agent.agent.llm import build_chat_model
-
-        try:
-            live_model = build_chat_model(settings)
-        except ModelUnavailable as exc:
-            print(f"live mode needs LLM_MODEL and OPENAI_API_KEY: {exc}", file=sys.stderr)
             return 2
 
     engine = create_engine(settings.database_url)
@@ -164,8 +183,17 @@ def main(argv: list[str] | None = None) -> int:
     (out_dir / "report.json").write_text(json.dumps(outcome.payload, indent=2), encoding="utf-8")
 
     summary = outcome.summary
+    low, high = summary["tsr_ci"]
+    k_low, k_high = summary["pass_k_ci"]
     print("")
-    print(f"pass^1 = {summary['tsr_pass_1']:.1%}  pass^{args.trials} = {summary['pass_k']:.1%}")
+    print(
+        f"pass^1 = {summary['tsr_pass_1']:.1%} "
+        f"(95% CI {low:.1%}-{high:.1%}, n={summary['trial_runs']})"
+    )
+    print(
+        f"pass^{args.trials} = {summary['pass_k']:.1%} "
+        f"(95% CI {k_low:.1%}-{k_high:.1%}, n={summary['scenarios']})"
+    )
     print(f"latency p50/p95 = {summary['latency_ms']['p50']} / {summary['latency_ms']['p95']} ms")
     print(f"report written to {out_dir / 'report.md'}")
     return 0 if summary["tsr_pass_1"] >= args.fail_under else 1

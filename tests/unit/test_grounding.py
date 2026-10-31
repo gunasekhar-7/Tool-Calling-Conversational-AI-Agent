@@ -74,6 +74,38 @@ def test_date_must_be_present_in_a_receipt() -> None:
     assert report.ok is False
 
 
+# --------------------------------------------------------------------------- #
+# dates inside timestamps and prose dates
+# --------------------------------------------------------------------------- #
+
+
+def test_iso_date_inside_a_receipted_timestamp_is_extracted() -> None:
+    claims = extract_claims("Delivered on 2026-10-20T10:00:00+00:00.")
+    assert [claim.normalized for claim in claims] == ["2026-10-20"]
+
+
+def test_prose_date_matches_a_receipted_timestamp() -> None:
+    report = verify("Order ORD-1001 was delivered on 20 October.", [RECEIPT])
+    assert report.ok is True
+
+
+def test_invented_prose_date_is_unsupported() -> None:
+    report = verify("Order ORD-1001 was delivered on 3 November.", [RECEIPT])
+    assert report.ok is False
+    assert [claim.text for claim in report.unsupported] == ["3 November"]
+
+
+def test_invented_iso_date_inside_a_sentence_is_unsupported() -> None:
+    report = verify("Delivered on 2025-01-01.", [RECEIPT])
+    assert report.ok is False
+
+
+def test_a_denial_receipt_does_not_ground_a_delivery_date() -> None:
+    denial = _receipt({"order_id": "ORD-1001", "found": False})
+    report = verify("Order ORD-1001 was delivered on 20 October.", [denial])
+    assert report.ok is False
+
+
 async def test_repair_rewrites_ungrounded_answer() -> None:
     model = ScriptedChatModel(
         responses=[AIMessage(content="Order ORD-1001 cost $129.99 and was delivered.")]

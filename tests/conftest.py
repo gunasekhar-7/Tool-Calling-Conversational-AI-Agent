@@ -67,9 +67,18 @@ if PG_AVAILABLE:
     _ensure_database()
 
 
+CI = os.environ.get("CI", "").lower() in {"1", "true", "yes"}
+
+
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
     if PG_AVAILABLE:
         return
+    if CI:
+        # A green CI run with every integration test skipped is a false claim, so
+        # refuse to collect instead of quietly testing nothing.
+        raise pytest.UsageError(
+            f"PostgreSQL is required in CI but is not reachable at {HOST}:{PORT}"
+        )
     skip = pytest.mark.skip(reason=f"PostgreSQL not reachable at {HOST}:{PORT}")
     for item in items:
         if "integration" in item.keywords:

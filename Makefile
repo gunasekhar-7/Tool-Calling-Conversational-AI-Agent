@@ -1,7 +1,7 @@
 .PHONY: install migrate seed api ui test lint fmt typecheck eval check up down
 
 install:
-	uv pip install --python .venv/Scripts/python.exe -e ".[dev]" || pip install -e ".[dev]"
+	uv sync --frozen --extra dev --extra dashboard
 
 migrate:
 	alembic upgrade head
@@ -29,6 +29,12 @@ typecheck:
 
 eval:
 	python scripts/evaluate.py --trials 3
+
+eval-live:
+	python scripts/evaluate.py --mode live --trials 3
+
+load:
+	python scripts/loadtest.py --sessions 20 --messages 5
 
 check: lint typecheck test eval
 

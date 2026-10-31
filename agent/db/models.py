@@ -7,6 +7,7 @@ from typing import Any
 from sqlalchemy import (
     CheckConstraint,
     DateTime,
+    Float,
     ForeignKey,
     Index,
     Integer,
@@ -182,6 +183,23 @@ class ToolReceipt(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+
+
+class RateLimitBucket(Base):
+    """One token bucket per customer.
+
+    In Postgres rather than in process memory so every API worker shares the same
+    budget, and so the table is bounded by the number of customers rather than the
+    number of requests.
+    """
+
+    __tablename__ = "rate_limit_buckets"
+
+    customer_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("customers.id", ondelete="CASCADE"), primary_key=True
+    )
+    tokens: Mapped[float] = mapped_column(Float, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
 class AuditLog(Base):

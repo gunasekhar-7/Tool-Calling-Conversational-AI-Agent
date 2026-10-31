@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -51,20 +52,30 @@ def _corpus(receipts: list[ToolReceipt]) -> tuple[str, set[str]]:
     return "\n".join(chunks), tokens
 
 
-def _supported(claim: Claim, corpus: str, tokens: set[str]) -> bool:
+_ISO_DATE = re.compile(r"(?<!\d)(\d{4}-\d{2}-\d{2})(?!\d)")
+
+
+def _supported(claim: Claim, corpus: str, tokens: set[str], dates: set[str]) -> bool:
     if claim.kind == "money":
         cents = claim.normalized
         if cents in tokens or cents in corpus:
             return True
         decimal = f"{int(cents) / 100:.2f}"
         return decimal in corpus
+    if claim.kind == "date":
+        if len(claim.normalized) == 10:
+            return claim.normalized in corpus
+        # A prose date states no year; it is supported when some receipted
+        # timestamp has the same month and day.
+        return any(date.endswith(f"-{claim.normalized}") for date in dates)
     return claim.normalized in corpus
 
 
 def verify(text: str, receipts: list[ToolReceipt]) -> GroundingReport:
     claims = extract_claims(text)
     corpus, tokens = _corpus(receipts)
-    unsupported = [claim for claim in claims if not _supported(claim, corpus, tokens)]
+    dates = set(_ISO_DATE.findall(corpus))
+    unsupported = [claim for claim in claims if not _supported(claim, corpus, tokens, dates)]
     return GroundingReport(ok=not unsupported, claims=claims, unsupported=unsupported)
 
 

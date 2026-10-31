@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass, field
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,3 +21,6 @@ class ToolContext:
     db: AsyncSession
     request_id: str
     lock: asyncio.Lock = field(default_factory=asyncio.Lock, compare=False, repr=False)
+    # Optional so the evaluation harness and unit tests can build a context without
+    # a metrics registry.
+    metrics: Any = field(default=None, compare=False, repr=False)

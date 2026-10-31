@@ -194,6 +194,13 @@ class PendingActionRepo:
             return existing
         return action
 
+    async def exists_for_stage_key(self, stage_key: str) -> bool:
+        """Whether this proposal already exists, so a replayed node is not counted twice."""
+        found = await self.session.scalar(
+            select(PendingAction.id).where(PendingAction.stage_key == stage_key).limit(1)
+        )
+        return found is not None
+
     async def find_open(
         self, session_id: uuid.UUID, now: datetime | None = None
     ) -> PendingAction | None:

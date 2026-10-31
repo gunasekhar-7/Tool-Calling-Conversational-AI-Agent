@@ -10,6 +10,7 @@ from langchain_core.tools import BaseTool, StructuredTool
 from pydantic import BaseModel
 
 from agent.agent.guardrails.policy import authorize
+from agent.observability import record_tool
 from agent.tools.context import ToolContext
 
 logger = logging.getLogger(__name__)
@@ -31,15 +32,22 @@ def _build_tool(spec: ToolSpec, ctx: ToolContext) -> BaseTool:
         args = spec.args_model(**kwargs)
         decision = authorize(spec.name, args.model_dump())
         if not decision.allowed:
+            record_tool(ctx, spec.name, "denied")
             logger.warning(
                 "tool_policy_denied",
                 extra={"extra_fields": {"tool": spec.name, "reason": decision.reason}},
             )
             return json.dumps({"ok": False, "error": "policy_denied", "message": decision.reason})
         if spec.handler is None:
+            record_tool(ctx, spec.name, "unavailable")
             return json.dumps({"ok": False, "error": "tool_unavailable"})
         async with ctx.lock:
-            result = await spec.handler(args, ctx)
+            try:
+                result = await spec.handler(args, ctx)
+            except Exception:
+                record_tool(ctx, spec.name, "error")
+                raise
+        record_tool(ctx, spec.name, "ok" if result.get("ok") else "not_found")
         return json.dumps(result, default=str)
 
     return StructuredTool.from_function(

@@ -17,10 +17,12 @@ dependencies = [
   "langchain-openai>=1.0",
   "httpx>=0.27",
   "pyyaml>=6.0",
-  "streamlit>=1.40",
+  "prometheus-client>=0.20",
 ]
 
 [project.optional-dependencies]
+# The API image stays lean; only the dashboard image opts into Streamlit.
+dashboard = ["streamlit>=1.40"]
 dev = [
   "pytest>=8",
   "pytest-asyncio>=0.24",
@@ -39,7 +41,7 @@ packages = ["agent"]
 asyncio_mode = "auto"
 testpaths = ["tests"]
 pythonpath = ["."]
-addopts = "-q"
+addopts = ""
 markers = [
   "integration: requires a live PostgreSQL instance",
   "eval: drives the scenario harness",
