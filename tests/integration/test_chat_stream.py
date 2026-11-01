@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import httpx
 import pytest
-from langchain_core.messages import AIMessage
+from langchain_core.messages import AIMessage, ToolMessage
 from langgraph.checkpoint.memory import InMemorySaver
 
 from agent.config import Settings
@@ -94,6 +94,48 @@ async def test_later_turn_does_not_replay_historical_tool_calls(app_client, seed
         "a tool that ran on an earlier turn is not this turn's activity"
     )
     assert second[-1][0] == "done"
+
+
+async def test_tool_budget_resets_each_turn(settings: Settings, seeded: None) -> None:
+    """Eight lookups in one conversation must not spend the budget for every turn.
+
+    The counter lives in checkpointed state, so a turn that forgets to reset it
+    silently disables tools for the rest of the session.
+    """
+    from agent.api.main import create_app
+
+    model = ScriptedChatModel(
+        responses=[
+            tool_call("get_order_status", {"order_id": "ORD-1001"}, "call-1"),
+            AIMessage(content="Order ORD-1001 was delivered."),
+            tool_call("get_order_status", {"order_id": "ORD-1001"}, "call-2"),
+            AIMessage(content="It is still delivered."),
+            tool_call("get_order_status", {"order_id": "ORD-1001"}, "call-3"),
+            AIMessage(content="Nothing has changed."),
+        ]
+    )
+    budget = settings.model_copy(update={"max_tool_calls": 2})
+    app = create_app(budget, model=model, checkpointer=InMemorySaver())
+    async with app.router.lifespan_context(app):
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(
+            transport=transport, base_url="http://testserver", timeout=30
+        ) as client:
+            session_id = await create_session(client, str(CUSTOMER_A))
+            turns = [
+                await collect_events(client, session_id, "Where is ORD-1001?") for _ in range(3)
+            ]
+
+    for index, events in enumerate(turns, start=1):
+        names = [name for name, _ in events]
+        assert names[-1] == "done"
+        # The `tool_call` event only proves the model proposed one: the cap routes
+        # that proposal away before execution. Look for the tool result the model
+        # was given, which only exists when the lookup actually ran.
+        results = {
+            message.tool_call_id for message in model.seen[-1] if isinstance(message, ToolMessage)
+        }
+        assert f"call-{index}" in results, f"turn {index}'s lookup never executed"
 
 
 async def test_write_turn_pauses_for_confirmation(app_client, seeded: None) -> None:

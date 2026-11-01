@@ -254,6 +254,11 @@ class AgentRuntime:
                 {
                     "messages": [HumanMessage(content=message)],
                     "customer_id": str(ctx.customer_id),
+                    # The budget is per turn. `tool_calls` is checkpointed state, so
+                    # leaving it alone would spend the allowance once across the
+                    # whole conversation and silently disable tools on later turns.
+                    "tool_calls": 0,
+                    "limit_reached": False,
                 },
                 config=config,
                 stream_mode="messages",

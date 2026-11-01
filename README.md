@@ -140,7 +140,7 @@ the definition of "it works".
 uv sync --frozen --extra dev --extra dashboard      # lockfile resolves
 uv run --frozen ruff check . && uv run --frozen ruff format --check agent tests evals dashboard scripts
 uv run --frozen mypy
-uv run --frozen pytest                               # 140 tests, real Postgres, 0 skipped
+uv run --frozen pytest                               # 141 tests, real Postgres, 0 skipped
 uv run --frozen python scripts/evaluate.py --trials 3 --fail-under 1.0
 ```
 
@@ -229,7 +229,7 @@ migrations/     Alembic (initial schema + rate_limit_buckets)
 evals/          Scenarios (25), scripted model, grading runner, committed reports
 dashboard/      Streamlit app + HTTP/SSE client
 scripts/        serve.py, seed.py, evaluate.py, loadtest.py
-tests/          140 unit + integration tests (real Postgres)
+tests/          141 unit + integration tests (real Postgres)
 docs/           runbook.md, decisions.md, superpowers/plans/
 ```
 
