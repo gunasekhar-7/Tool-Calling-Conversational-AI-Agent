@@ -10,3 +10,4 @@ class AgentState(MessagesState, total=False):
     pending_action_id: str | None
     tool_calls: int
     limit_reached: bool
+    degraded: bool

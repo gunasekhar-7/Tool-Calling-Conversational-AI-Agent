@@ -46,6 +46,7 @@ addopts = ""
 markers = [
   "integration: requires a live PostgreSQL instance",
   "eval: drives the scenario harness",
+  "unit: fast unit tests that require no external dependencies",
 ]
 filterwarnings = [
   "ignore::DeprecationWarning",

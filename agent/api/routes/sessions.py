@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
 
 from agent.api.deps import Principal, get_runtime, require_principal
 from agent.db.repositories import CustomerRepo, SessionRepo
@@ -53,12 +53,23 @@ async def get_session(
 
 @router.get("/v1/sessions/{session_id}/transcript", response_model=TranscriptOut)
 async def get_transcript(
-    request: Request, session_id: UUID, principal: Principal = Depends(require_principal)
+    request: Request,
+    session_id: UUID,
+    principal: Principal = Depends(require_principal),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
 ) -> TranscriptOut:
     runtime: AgentRuntime = get_runtime(request)
-    messages = await runtime.get_transcript(
+    messages, has_more, next_offset = await runtime.get_transcript(
         session_id,
         request_id_var.get() or "-",
         customer_id=principal.customer_id,
+        limit=limit,
+        offset=offset,
     )
-    return TranscriptOut(session_id=session_id, messages=messages)
+    return TranscriptOut(
+        session_id=session_id,
+        messages=messages,
+        has_more=has_more,
+        next_offset=next_offset,
+    )

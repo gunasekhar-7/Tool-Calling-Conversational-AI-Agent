@@ -6,6 +6,7 @@ from prometheus_client import (
     CONTENT_TYPE_LATEST,
     CollectorRegistry,
     Counter,
+    Gauge,
     Histogram,
     generate_latest,
 )
@@ -54,6 +55,29 @@ class Metrics:
             ["reason"],
             registry=self.registry,
         )
+        self.degraded_turns = Counter(
+            "agent_degraded_turns_total",
+            "Turns executed in degraded read-only mode.",
+            ["outcome"],
+            registry=self.registry,
+        )
+        self.circuit_state = Gauge(
+            "agent_circuit_state",
+            "Circuit breaker state (0=closed, 1=half_open, 2=open).",
+            ["circuit"],
+            registry=self.registry,
+        )
+        self.retry_attempts = Counter(
+            "agent_retry_attempts_total",
+            "Database retry attempts by operation.",
+            ["operation", "result"],
+            registry=self.registry,
+        )
+        self.body_size_rejections = Counter(
+            "agent_body_size_rejections_total",
+            "Requests rejected due to body size limit.",
+            registry=self.registry,
+        )
 
     def observe_request(self, route: str, method: str, status: int) -> None:
         self.http_requests.labels(route=route, method=method, status=str(status)).inc()
@@ -66,6 +90,18 @@ class Metrics:
 
     def observe_block(self, reason: str) -> None:
         self.guardrail_blocks.labels(reason=reason).inc()
+
+    def observe_degraded_turn(self, outcome: str) -> None:
+        self.degraded_turns.labels(outcome=outcome).inc()
+
+    def set_circuit_state(self, circuit: str, state: int) -> None:
+        self.circuit_state.labels(circuit=circuit).set(state)
+
+    def observe_retry(self, operation: str, result: str) -> None:
+        self.retry_attempts.labels(operation=operation, result=result).inc()
+
+    def observe_body_size_rejection(self) -> None:
+        self.body_size_rejections.inc()
 
     def render(self) -> tuple[bytes, str]:
         return generate_latest(self.registry), CONTENT_TYPE_LATEST

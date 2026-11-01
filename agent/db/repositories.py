@@ -4,14 +4,16 @@ import hashlib
 import hmac
 import json
 import uuid
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, TypeVar
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from agent.config import Settings
 from agent.db.models import (
     AuditLog,
     Customer,
@@ -21,7 +23,55 @@ from agent.db.models import (
     Ticket,
     ToolReceipt,
 )
-from agent.errors import ApprovalExpired, ApprovalMismatch, Conflict, NotFound
+from agent.errors import (
+    ApprovalExpired,
+    ApprovalMismatch,
+    Conflict,
+    NotFound,
+)
+from agent.reliability import CircuitBreaker, RetryConfig, retry_with_backoff
+
+T = TypeVar("T")
+
+
+async def run_with_retry[T](
+    settings: Settings,
+    circuit: CircuitBreaker,
+    operation: Callable[[], Awaitable[T]],
+    *,
+    operation_name: str = "db_operation",
+    idempotency_key: str | None = None,
+    metrics: Any | None = None,
+) -> T:
+    """Execute a database operation with retry and circuit breaker.
+
+    Args:
+        settings: Application settings for retry config.
+        circuit: Circuit breaker instance.
+        operation: Async function to execute.
+        operation_name: Name for logging/metrics.
+        idempotency_key: If provided, the operation is safe to retry on
+            serialization/deadlock errors. If None, only connection errors
+            trigger retry (avoids double-execution risk).
+        metrics: Optional metrics instance for recording retry attempts.
+
+    Returns:
+        The result of the operation.
+    """
+    retry_config = RetryConfig.from_settings(settings)
+
+    async def _with_circuit() -> T:
+        return await circuit.call(operation, operation_name=operation_name)
+
+    result = await retry_with_backoff(
+        _with_circuit,
+        retry_config,
+        operation_name=operation_name,
+        idempotency_key=idempotency_key,
+    )
+    if metrics is not None:
+        metrics.observe_retry(operation_name, "success")
+    return result
 
 
 def hash_args(args: dict[str, Any]) -> str:

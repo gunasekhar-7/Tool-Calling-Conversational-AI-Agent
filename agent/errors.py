@@ -72,5 +72,19 @@ class ModelUnavailable(DomainError):
     http_status = 503
 
 
+class ProviderDegraded(DomainError):
+    """The model provider is degraded; read-only mode is active, writes rejected."""
+
+    code = "provider_degraded"
+    http_status = 503
+
+
+class CircuitOpen(DomainError):
+    """A circuit breaker is open; calls fail fast instead of waiting."""
+
+    code = "circuit_open"
+    http_status = 503
+
+
 class ConfigError(RuntimeError):
     """Raised when the service is misconfigured, never shown to end users."""

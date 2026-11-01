@@ -4,12 +4,25 @@ What to do when this service misbehaves. Every claim here refers to code in this
 repository: metric names come from `agent/observability.py`, error codes from
 `agent/errors.py`, and configuration from `agent/config.py`.
 
+## 0. Service Level Objectives (SLOs)
+
+| SLO | Target | Measurement Window |
+| --- | --- | --- |
+| Availability | 99.9% | 30-day rolling |
+| Turn latency p95 | < 2 s | 5-min rolling |
+| Error rate (5xx) | < 1% | 5-min rolling |
+| Approval success rate | > 99% | 1-hour rolling |
+| Degraded-mode availability | 100% (read tools) | Continuous |
+
+SLOs are measured via Prometheus metrics (see §2). Alert rules in `monitoring/alerts.yml`
+fire when error budgets are consumed.
+
 ## 1. Health and where to look first
 
 | Signal | Meaning | Where |
 | --- | --- | --- |
 | `GET /healthz` | Process is up. Says nothing about the database. | Load balancer liveness |
-| `GET /readyz` | `SELECT 1` against Postgres succeeded. | Load balancer readiness, Fly health check |
+| `GET /readyz` | `SELECT 1` against Postgres succeeded; includes `model_ready`, `degraded`, `db_circuit`, `provider_circuit`. | Load balancer readiness, Fly health check |
 | `GET /metrics` | Prometheus exposition, **bearer protected** | Scrape with a customer token |
 | stdout JSON lines | One object per event, with `request_id` | `fly logs`, `docker compose logs api` |
 
@@ -23,10 +36,14 @@ All series are per process. With more than one machine, sum across instances.
 | Series | Labels | What it tells you | Alert |
 | --- | --- | --- | --- |
 | `agent_http_requests_total` | `route`, `method`, `status` | Traffic and error mix by route. `route="unmatched"` means 404s hitting no handler. | 5xx rate > 1% over 5 min |
-| `agent_turn_seconds` | `outcome` = `done`, `awaiting_approval`, `error` | Time from message to terminal event, including provider time. | p95 > 15 s for 10 min |
+| `agent_turn_seconds` | `outcome` = `done`, `awaiting_approval`, `error`, `degraded_done` | Time from message to terminal event, including provider time. | p95 > 15 s for 10 min |
 | `agent_tool_calls_total` | `tool`, `outcome` = `ok`, `not_found`, `denied`, `error`, `unavailable`, `staged`, `executed`, `rejected` | Which tools run and how they end. A rising `denied` means the model is proposing actions policy refuses. | `error` > 5% of calls over 15 min |
 | `agent_approvals_total` | `decision` = `approve`, `reject` | Human decisions on staged writes. | Approve share collapsing to 0% with staged writes still rising: the preview is confusing people |
-| `agent_guardrail_blocks_total` | `reason` | Requests stopped before a model call. `rate_limited` is produced by the limiter, the rest by `screen_input`. | Any sustained spike is a signal to read the logs, not to relax the guardrail |
+| `agent_guardrail_blocks_total` | `reason` | Requests stopped before a model call. `rate_limited` is produced by the limiter, the rest by `screen_input`. `provider_degraded` indicates degraded mode. | Any sustained spike is a signal to read the logs, not to relax the guardrail |
+| `agent_degraded_turns_total` | `outcome` | Turns executed in degraded read-only mode. | Sustained > 0 for 5 min: provider is down |
+| `agent_circuit_state` | `circuit` = `db`, `provider` | Circuit breaker state (0=closed, 1=half_open, 2=open). | `db` or `provider` = 2 (open) for > 1 min |
+| `agent_retry_attempts_total` | `operation`, `result` = `success`, `failure` | Database retry attempts. | Retry rate > 10% of operations |
+| `agent_body_size_rejections_total` | — | Requests rejected due to body size limit. | Any sustained spike |
 
 `agent_turn_seconds` is the honest latency number. It includes the provider call.
 `evals/report/load.md` is a different measurement (no provider); do not mix them.
@@ -35,6 +52,19 @@ Model-call tracing is opt-in. With `RESPAN_API_KEY` set, tracing is initialized 
 before the first model client and flushed at shutdown; unset, the SDK is never
 imported. It exports prompts and tool payloads to a third party, so treat the key as
 a data-processing decision, not just an observability toggle.
+
+## 2a. Alert rules
+
+Alert rules are defined in `monitoring/alerts.yml` and loaded by Prometheus/Alertmanager.
+Key alerts:
+
+- **HighErrorRate**: `rate(agent_http_requests_total{status=~"5.."}[5m]) > 0.01`
+- **HighLatency**: `histogram_quantile(0.95, rate(agent_turn_seconds_bucket[5m])) > 15`
+- **ProviderCircuitOpen**: `agent_circuit_state{circuit="provider"} == 2`
+- **DBCircuitOpen**: `agent_circuit_state{circuit="db"} == 2`
+- **DegradedModeActive**: `rate(agent_degraded_turns_total[5m]) > 0`
+- **HighRetryRate**: `rate(agent_retry_attempts_total{result="failure"}[5m]) / rate(agent_retry_attempts_total[5m]) > 0.1`
+- **BodySizeRejections**: `rate(agent_body_size_rejections_total[5m]) > 0`
 
 ## 3. Error codes and what a client should do
 
@@ -45,10 +75,12 @@ a data-processing decision, not just an observability toggle.
 | 409 | `approval_expired` | The TTL passed before the decision landed. The paused graph is settled as a rejection; no write happened | Re-ask the agent; the session remains valid |
 | 409 | `approval_mismatch` | The `preview_hash` does not match the staged arguments | Re-render the preview from a fresh turn; never retry with the old hash |
 | 409 | `conflict` | The action was already executed with a different idempotency key, or already rejected | Treat as final. Fetch the ticket to confirm |
-| 413 | `request_too_large` | `Content-Length` exceeds `MAX_REQUEST_BYTES` (64 KiB) | Fix the request; this is refused before parsing |
+| 413 | `request_too_large` | Request body exceeds `MAX_REQUEST_BYTES` (64 KiB), enforced by streaming byte count | Fix the request; this is refused before parsing |
 | 422 | `invalid_input` | Empty, too long (`MAX_MESSAGE_CHARS`), or a malformed body | Fix the request |
 | 429 | `rate_limited` | Token bucket empty for this customer | Wait `Retry-After` seconds |
 | 503 | `model_unavailable` | `LLM_MODEL` / `OPENAI_API_KEY` missing, or no model could be built | Operator action, not a client retry loop |
+| 503 | `provider_degraded` | Provider unavailable; read-only mode active. Read tools work, writes rejected. | Retry read operations; writes will fail until provider recovers |
+| 503 | `circuit_open` | Circuit breaker open (DB or provider). Calls fail fast. | Back off and retry after cooldown |
 | 500 | `write_failed` | The approved write failed and was rolled back. Nothing was created | Safe to retry the approval with a new idempotency key |
 
 The 409 `approval_pending` is deliberate: the graph is paused with an unanswered tool
@@ -59,7 +91,30 @@ node records a rejected tool result and routes to END. No model call is made, no
 ticket is created, and the provider never sees an assistant tool call without a
 matching tool message.
 
-## 4. A proposed action is stuck
+## 4. Degraded mode (provider unavailable)
+
+When the LLM provider is unreachable or the provider circuit breaker opens, the service
+enters **degraded read-only mode** (controlled by `DEGRADED_READ_ONLY=true`):
+
+- **Read tools work**: `get_order_status`, `list_customer_orders`, `get_ticket`,
+  `check_refund_eligibility` execute normally and return grounded answers.
+- **Writes rejected**: `create_ticket` returns `provider_degraded` (503) immediately
+  without staging.
+- **SSE still streams**: Tokens and tool calls are emitted; the turn ends with `done`
+  or `error` (`provider_degraded`).
+- **Approval endpoint**: Returns `provider_degraded` for any write approval.
+- **Recovery**: Automatic when provider circuit closes (half-open probes succeed).
+  No deploy needed.
+
+Runbook entry:
+1. Check `/readyz` — `degraded: true`, `provider_circuit: "open"`.
+2. Check provider status (OpenAI dashboard, network connectivity).
+3. If provider is down, inform stakeholders that write operations are unavailable.
+   Read operations remain functional.
+4. When provider recovers, circuit half-open probes will close it automatically.
+   No manual action required unless `PROVIDER_CIRCUIT_COOLDOWN_SECONDS` needs tuning.
+
+## 5. A proposed action is stuck
 
 A staged row can sit in `proposed` in three ways: the user closed the tab, the TTL
 passed, or the approval response was lost.

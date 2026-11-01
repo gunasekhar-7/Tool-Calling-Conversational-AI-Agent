@@ -12,7 +12,7 @@ from pydantic import BaseModel, ConfigDict, ValidationError
 
 from agent.agent.guardrails.policy import authorize
 from agent.agent.state import AgentState
-from agent.errors import NotFound
+from agent.errors import NotFound, ProviderDegraded
 from agent.observability import record_tool
 from agent.tools.context import ToolContext
 from agent.tools.tickets_write import CreateTicketArgs, stage_create_ticket
@@ -50,6 +50,17 @@ def make_write_node(
     ctx: ToolContext, *, ttl_seconds: int
 ) -> Callable[[AgentState], Awaitable[Command]]:
     async def write_node(state: AgentState) -> Command:
+        # In degraded mode, reject write attempts immediately
+        if state.get("degraded"):
+            last = state["messages"][-1]
+            calls = list(getattr(last, "tool_calls", []) or [])
+            for call in calls:
+                if call["name"] in WRITE_TOOL_NAMES:
+                    raise ProviderDegraded(
+                        "write operations unavailable in degraded mode; "
+                        "read-only operations permitted"
+                    )
+
         last = state["messages"][-1]
         calls = list(getattr(last, "tool_calls", []) or [])
         write_calls = [call for call in calls if call["name"] in WRITE_TOOL_NAMES]

@@ -26,6 +26,7 @@ async def send_message(
 ) -> StreamingResponse:
     settings: Settings = get_settings(request)
     runtime: AgentRuntime = get_runtime(request)
+    metrics = request.app.state.metrics
 
     # Ownership, live approvals and stale interrupts are settled before the stream
     # starts, so a refusal is a real 409 rather than an error event inside a 200.
@@ -33,10 +34,11 @@ async def send_message(
         session_id, request_id_var.get() or "-", customer_id=principal.customer_id
     )
 
-    if runtime.model is None:
+    # Allow degraded mode (read-only) even when model is not configured
+    if runtime.model is None and not runtime.is_degraded:
         raise ModelUnavailable("LLM_MODEL and OPENAI_API_KEY must be configured")
-
-    metrics = request.app.state.metrics
+    if runtime.is_degraded:
+        metrics.observe_block("provider_degraded")
     screen = screen_input(body.message, settings.max_message_chars)
     if not screen.allowed:
         metrics.observe_block(screen.reason)

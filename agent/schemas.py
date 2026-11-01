@@ -56,3 +56,5 @@ class TranscriptMessage(BaseModel):
 class TranscriptOut(BaseModel):
     session_id: UUID
     messages: list[TranscriptMessage]
+    has_more: bool = False
+    next_offset: int | None = None

@@ -108,32 +108,35 @@ def create_app(
         rid = request.headers.get("x-request-id") or uuid.uuid4().hex
         token = request_id_var.set(rid)
         try:
-            declared = request.headers.get("content-length")
-            too_large = False
-            if declared is not None:
-                try:
-                    too_large = int(declared) > resolved.max_request_bytes
-                except ValueError:
-                    too_large = False
-            if too_large:
-                response = JSONResponse(
-                    status_code=413,
-                    content={
-                        "code": "request_too_large",
-                        "message": (
-                            "Request body exceeds the configured limit of "
-                            f"{resolved.max_request_bytes} bytes."
-                        ),
-                        "request_id": rid,
-                    },
-                )
-            else:
-                response = await call_next(request)
+            # Streaming body-size enforcement: read and count actual bytes
+            # rather than trusting Content-Length header (which can be spoofed/missing).
+            if resolved.enforce_body_size_streaming:
+                body_bytes = b""
+                async for chunk in request.stream():
+                    body_bytes += chunk
+                    if len(body_bytes) > resolved.max_request_bytes:
+                        request.app.state.metrics.observe_body_size_rejection()
+                        response = JSONResponse(
+                            status_code=413,
+                            content={
+                                "code": "request_too_large",
+                                "message": (
+                                    "Request body exceeds the configured limit of "
+                                    f"{resolved.max_request_bytes} bytes."
+                                ),
+                                "request_id": rid,
+                            },
+                        )
+                        response.headers["X-Request-ID"] = rid
+                        return response
+                # Re-create request with buffered body for downstream handlers
+                request._body = body_bytes
+
+            response = await call_next(request)
         finally:
             request_id_var.reset(token)
         response.headers["X-Request-ID"] = rid
         route = request.scope.get("route")
-        # Matched template only: raw paths would make the label cardinality unbounded.
         label = getattr(route, "path", None) or "unmatched"
         request.app.state.metrics.observe_request(label, request.method, response.status_code)
         return response

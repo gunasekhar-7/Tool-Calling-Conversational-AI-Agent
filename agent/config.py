@@ -47,6 +47,32 @@ class Settings(BaseSettings):
     sse_keepalive_seconds: float = 15.0
     cors_origins: list[str] = []
 
+    # Degraded mode: when the model provider is unavailable the service stays up
+    # for read-only turns (orders, tickets, refund eligibility) and rejects writes.
+    # Activated when credentials are missing or the provider circuit opens.
+    degraded_read_only: bool = False
+
+    # Circuit breaker for the model provider. Consecutive provider failures open
+    # the breaker; half-open probes after cooldown. A closed breaker means calls
+    # proceed normally.
+    provider_circuit_failure_threshold: int = Field(default=5, ge=1)
+    provider_circuit_cooldown_seconds: int = Field(default=30, ge=1)
+    provider_circuit_half_open_probes: int = Field(default=2, ge=1)
+
+    # Database circuit breaker and retry for transient failures.
+    db_circuit_failure_threshold: int = Field(default=5, ge=1)
+    db_circuit_cooldown_seconds: int = Field(default=30, ge=1)
+    db_circuit_half_open_probes: int = Field(default=2, ge=1)
+    db_retry_max_attempts: int = Field(default=3, ge=1)
+    db_retry_base_delay_seconds: float = Field(default=0.25, ge=0)
+
+    # Transcript pagination defaults.
+    transcript_page_size: int = Field(default=50, ge=1, le=200)
+
+    # Body-size enforcement reads the actual streamed body rather than trusting
+    # Content-Length. Aborts when bytes exceed max_request_bytes.
+    enforce_body_size_streaming: bool = True
+
     @field_validator("checkpoint_dsn", mode="before")
     @classmethod
     def _empty_to_none(cls, value: object) -> object:

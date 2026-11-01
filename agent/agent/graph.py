@@ -4,7 +4,7 @@ import logging
 from typing import Any, cast
 
 from langchain_core.language_models.chat_models import BaseChatModel
-from langchain_core.messages import AIMessage, SystemMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 from langchain_core.tools import BaseTool
 from langgraph.graph import END, START, StateGraph
 from langgraph.prebuilt import ToolNode
@@ -57,6 +57,85 @@ def build_graph(
 
     async def agent_node(state: AgentState) -> dict[str, Any]:
         if bound is None:
+            if state.get("degraded"):
+                user_text = ""
+                for m in reversed(state.get("messages", [])):
+                    if isinstance(m, HumanMessage):
+                        user_text = _message_text(m)
+                        break
+                import re
+
+                ord_match = re.search(r"\b(ORD-\d{4})\b", user_text, re.IGNORECASE)
+                tck_match = re.search(r"\b(TCK-\d{4})\b", user_text, re.IGNORECASE)
+                is_ticket_write = any(
+                    w in user_text.lower() for w in ["open ticket", "create ticket", "new ticket"]
+                )
+                if is_ticket_write:
+                    return {
+                        "messages": [
+                            AIMessage(
+                                content="",
+                                tool_calls=[
+                                    {
+                                        "name": "create_ticket",
+                                        "args": {"subject": "Support Request", "body": user_text},
+                                        "id": "deg_w1",
+                                    }
+                                ],
+                            )
+                        ],
+                        "tool_calls": state.get("tool_calls", 0) + 1,
+                    }
+                if ord_match:
+                    return {
+                        "messages": [
+                            AIMessage(
+                                content="",
+                                tool_calls=[
+                                    {
+                                        "name": "get_order_status",
+                                        "args": {"order_id": ord_match.group(1).upper()},
+                                        "id": "deg_r1",
+                                    }
+                                ],
+                            )
+                        ],
+                        "tool_calls": state.get("tool_calls", 0) + 1,
+                    }
+                if tck_match:
+                    return {
+                        "messages": [
+                            AIMessage(
+                                content="",
+                                tool_calls=[
+                                    {
+                                        "name": "get_ticket",
+                                        "args": {"ticket_id": tck_match.group(1).upper()},
+                                        "id": "deg_r1",
+                                    }
+                                ],
+                            )
+                        ],
+                        "tool_calls": state.get("tool_calls", 0) + 1,
+                    }
+                tool_msgs = [m for m in state.get("messages", []) if isinstance(m, ToolMessage)]
+                if tool_msgs:
+                    return {
+                        "messages": [AIMessage(content=f"Lookup result: {tool_msgs[-1].content}")],
+                        "tool_calls": state.get("tool_calls", 0),
+                    }
+                return {
+                    "messages": [
+                        AIMessage(
+                            content=(
+                                "Service is operating in degraded read-only mode. "
+                                "Provide an order ID (e.g. ORD-1001) or ticket ID "
+                                "to look up status."
+                            )
+                        )
+                    ],
+                    "tool_calls": state.get("tool_calls", 0),
+                }
             raise ModelUnavailable("No model is configured")
         messages = [SystemMessage(content=SYSTEM_PROMPT)] + list(state["messages"])
         # Consume the model's stream so LangGraph can forward tokens to SSE while

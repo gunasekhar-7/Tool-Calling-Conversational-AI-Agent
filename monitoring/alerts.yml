@@ -1,0 +1,106 @@
+groups:
+- name: agent.rules
+  rules:
+  - alert: HighErrorRate
+    expr: |
+      sum(rate(agent_http_requests_total{status=~"5.."}[5m])) by (instance)
+      /
+      sum(rate(agent_http_requests_total[5m])) by (instance)
+      > 0.01
+    for: 5m
+    labels:
+      severity: critical
+    annotations:
+      summary: "High 5xx error rate on {{ $labels.instance }}"
+      description: "5xx rate is {{ $value | humanizePercentage }} over 5 minutes"
+
+  - alert: HighLatency
+    expr: |
+      histogram_quantile(0.95,
+        sum(rate(agent_turn_seconds_bucket[5m])) by (instance, le)
+      ) > 15
+    for: 10m
+    labels:
+      severity: warning
+    annotations:
+      summary: "High turn latency p95 on {{ $labels.instance }}"
+      description: "Turn latency p95 is {{ $value }}s"
+
+  - alert: ProviderCircuitOpen
+    expr: |
+      agent_circuit_state{circuit="provider"} == 2
+    for: 1m
+    labels:
+      severity: critical
+    annotations:
+      summary: "Provider circuit breaker OPEN on {{ $labels.instance }}"
+      description: "Provider circuit has been open for > 1 minute. Degraded mode active."
+
+  - alert: DBCircuitOpen
+    expr: |
+      agent_circuit_state{circuit="db"} == 2
+    for: 1m
+    labels:
+      severity: critical
+    annotations:
+      summary: "DB circuit breaker OPEN on {{ $labels.instance }}"
+      description: "Database circuit has been open for > 1 minute. Calls failing fast."
+
+  - alert: DegradedModeActive
+    expr: |
+      sum(rate(agent_degraded_turns_total[5m])) by (instance) > 0
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Degraded mode active on {{ $labels.instance }}"
+      description: "Provider unavailable; read-only mode serving traffic. Check provider connectivity."
+
+  - alert: HighRetryRate
+    expr: |
+      (
+        sum(rate(agent_retry_attempts_total{result="failure"}[5m])) by (instance)
+        /
+        sum(rate(agent_retry_attempts_total[5m])) by (instance)
+      ) > 0.1
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "High DB retry rate on {{ $labels.instance }}"
+      description: "DB retry failure rate is {{ $value | humanizePercentage }}"
+
+  - alert: BodySizeRejections
+    expr: |
+      rate(agent_body_size_rejections_total[5m]) > 0
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Body size rejections on {{ $labels.instance }}"
+      description: "Requests being rejected due to body size limit"
+
+  - alert: GuardrailBlockSpike
+    expr: |
+      sum(rate(agent_guardrail_blocks_total[5m])) by (instance, reason)
+      > 10
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Guardrail block spike on {{ $labels.instance }}"
+      description: "Reason '{{ $labels.reason }}' blocking > 10 req/s"
+
+  - alert: ApprovalSuccessRateDrop
+    expr: |
+      (
+        sum(rate(agent_approvals_total{decision="reject"}[1h])) by (instance)
+        /
+        sum(rate(agent_approvals_total[1h])) by (instance)
+      ) > 0.5
+    for: 15m
+    labels:
+      severity: warning
+    annotations:
+      summary: "High approval rejection rate on {{ $labels.instance }}"
+      description: "Over 50% of approvals rejected in last hour"

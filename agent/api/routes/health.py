@@ -30,7 +30,27 @@ async def readyz(request: Request) -> JSONResponse:
     except Exception as exc:
         logger.warning("readyz_db_unavailable", extra={"extra_fields": {"error": str(exc)}})
         return JSONResponse(status_code=503, content={"status": "db_unavailable"})
-    return JSONResponse(status_code=200, content={"status": "ready"})
+
+    # Check model seam readiness (relevant for degraded mode)
+    runtime = getattr(request.app.state, "runtime", None)
+    if runtime is None:
+        return JSONResponse(status_code=503, content={"status": "runtime_unavailable"})
+
+    model_ready = runtime.model is not None
+    degraded = runtime.is_degraded
+    db_circuit_state = runtime.db_circuit.state.value
+    provider_circuit_state = runtime.provider_circuit.state.value
+
+    return JSONResponse(
+        status_code=200,
+        content={
+            "status": "ready",
+            "model_ready": model_ready,
+            "degraded": degraded,
+            "db_circuit": db_circuit_state,
+            "provider_circuit": provider_circuit_state,
+        },
+    )
 
 
 @router.get("/metrics")
