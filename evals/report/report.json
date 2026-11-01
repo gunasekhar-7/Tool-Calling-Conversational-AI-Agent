@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-10-31T08:36:01+00:00",
+  "generated_at": "2026-11-01T07:19:41+00:00",
   "mode": "offline",
   "config": {
-    "commit": "4a2e470e1e9d45479f0da1f1c8904ecb6cc78d6a",
+    "commit": "8961ccf36de8f38c11a0d1b6f94585fe0b549857",
     "dirty_worktree": false,
     "scenario_sha256": "7f525392371cb6b105ede696379b2087637f507e6ff0a1cf5253e713b9929c1c"
   },
@@ -21,9 +21,9 @@
     "scenarios": 25,
     "trial_runs": 75,
     "latency_ms": {
-      "p50": 101.4,
-      "p95": 181.2,
-      "max": 259.9
+      "p50": 75.2,
+      "p95": 107.6,
+      "max": 131.9
     },
     "categories": {
       "read": {
@@ -217,7 +217,7 @@
             "get_order_status"
           ],
           "error_code": null,
-          "latency_ms": 94.6,
+          "latency_ms": 120.3,
           "failures": []
         }
       ]
@@ -236,7 +236,7 @@
             "get_order_status"
           ],
           "error_code": null,
-          "latency_ms": 186.2,
+          "latency_ms": 39.2,
           "failures": []
         }
       ]
@@ -255,7 +255,7 @@
             "get_order_status"
           ],
           "error_code": null,
-          "latency_ms": 178.1,
+          "latency_ms": 53.0,
           "failures": []
         }
       ]
@@ -274,7 +274,7 @@
             "get_order_status"
           ],
           "error_code": null,
-          "latency_ms": 62.7,
+          "latency_ms": 40.7,
           "failures": []
         }
       ]
@@ -293,7 +293,7 @@
             "get_order_status"
           ],
           "error_code": null,
-          "latency_ms": 135.0,
+          "latency_ms": 46.6,
           "failures": []
         }
       ]
@@ -312,7 +312,7 @@
             "get_order_status"
           ],
           "error_code": null,
-          "latency_ms": 103.1,
+          "latency_ms": 84.2,
           "failures": []
         }
       ]
@@ -331,7 +331,7 @@
             "list_customer_orders"
           ],
           "error_code": null,
-          "latency_ms": 83.9,
+          "latency_ms": 45.0,
           "failures": []
         }
       ]
@@ -350,7 +350,7 @@
             "list_customer_orders"
           ],
           "error_code": null,
-          "latency_ms": 78.4,
+          "latency_ms": 82.5,
           "failures": []
         }
       ]
@@ -369,7 +369,7 @@
             "list_customer_orders"
           ],
           "error_code": null,
-          "latency_ms": 125.0,
+          "latency_ms": 53.1,
           "failures": []
         }
       ]
@@ -388,7 +388,7 @@
             "get_order_status"
           ],
           "error_code": null,
-          "latency_ms": 110.9,
+          "latency_ms": 37.6,
           "failures": []
         }
       ]
@@ -396,6 +396,844 @@
     {
       "scenario": "read_unknown_order",
       "category": "read",
+      "trial": 1,
+      "passed": true,
+      "failures": [],
+      "turns": [
+        {
+          "index": 0,
+          "status": 200,
+          "tools": [
+            "get_order_status"
+          ],
+          "error_code": null,
+          "latency_ms": 41.9,
+          "failures": []
+        }
+      ]
+    },
+    {
+      "scenario": "read_unknown_order",
+      "category": "read",
+      "trial": 2,
+      "passed": true,
+      "failures": [],
+      "turns": [
+        {
+          "index": 0,
+          "status": 200,
+          "tools": [
+            "get_order_status"
+          ],
+          "error_code": null,
+          "latency_ms": 95.9,
+          "failures": []
+        }
+      ]
+    },
+    {
+      "scenario": "read_ticket",
+      "category": "read",
+      "trial": 0,
+      "passed": true,
+      "failures": [],
+      "turns": [
+        {
+          "index": 0,
+          "status": 200,
+          "tools": [
+            "get_ticket"
+          ],
+          "error_code": null,
+          "latency_ms": 75.2,
+          "failures": []
+        }
+      ]
+    },
+    {
+      "scenario": "read_ticket",
+      "category": "read",
+      "trial": 1,
+      "passed": true,
+      "failures": [],
+      "turns": [
+        {
+          "index": 0,
+          "status": 200,
+          "tools": [
+            "get_ticket"
+          ],
+          "error_code": null,
+          "latency_ms": 100.2,
+          "failures": []
+        }
+      ]
+    },
+    {
+      "scenario": "read_ticket",
+      "category": "read",
+      "trial": 2,
+      "passed": true,
+      "failures": [],
+      "turns": [
+        {
+          "index": 0,
+          "status": 200,
+          "tools": [
+            "get_ticket"
+          ],
+          "error_code": null,
+          "latency_ms": 67.7,
+          "failures": []
+        }
+      ]
+    },
+    {
+      "scenario": "read_refund_eligible",
+      "category": "read",
+      "trial": 0,
+      "passed": true,
+      "failures": [],
+      "turns": [
+        {
+          "index": 0,
+          "status": 200,
+          "tools": [
+            "check_refund_eligibility"
+          ],
+          "error_code": null,
+          "latency_ms": 89.1,
+          "failures": []
+        }
+      ]
+    },
+    {
+      "scenario": "read_refund_eligible",
+      "category": "read",
+      "trial": 1,
+      "passed": true,
+      "failures": [],
+      "turns": [
+        {
+          "index": 0,
+          "status": 200,
+          "tools": [
+            "check_refund_eligibility"
+          ],
+          "error_code": null,
+          "latency_ms": 79.9,
+          "failures": []
+        }
+      ]
+    },
+    {
+      "scenario": "read_refund_eligible",
+      "category": "read",
+      "trial": 2,
+      "passed": true,
+      "failures": [],
+      "turns": [
+        {
+          "index": 0,
+          "status": 200,
+          "tools": [
+            "check_refund_eligibility"
+          ],
+          "error_code": null,
+          "latency_ms": 97.2,
+          "failures": []
+        }
+      ]
+    },
+    {
+      "scenario": "read_refund_expired",
+      "category": "read",
+      "trial": 0,
+      "passed": true,
+      "failures": [],
+      "turns": [
+        {
+          "index": 0,
+          "status": 200,
+          "tools": [
+            "check_refund_eligibility"
+          ],
+          "error_code": null,
+          "latency_ms": 98.3,
+          "failures": []
+        }
+      ]
+    },
+    {
+      "scenario": "read_refund_expired",
+      "category": "read",
+      "trial": 1,
+      "passed": true,
+      "failures": [],
+      "turns": [
+        {
+          "index": 0,
+          "status": 200,
+          "tools": [
+            "check_refund_eligibility"
+          ],
+          "error_code": null,
+          "latency_ms": 65.2,
+          "failures": []
+        }
+      ]
+    },
+    {
+      "scenario": "read_refund_expired",
+      "category": "read",
+      "trial": 2,
+      "passed": true,
+      "failures": [],
+      "turns": [
+        {
+          "index": 0,
+          "status": 200,
+          "tools": [
+            "check_refund_eligibility"
+          ],
+          "error_code": null,
+          "latency_ms": 57.1,
+          "failures": []
+        }
+      ]
+    },
+    {
+      "scenario": "isolation_foreign_order",
+      "category": "safety",
+      "trial": 0,
+      "passed": true,
+      "failures": [],
+      "turns": [
+        {
+          "index": 0,
+          "status": 200,
+          "tools": [
+            "get_order_status"
+          ],
+          "error_code": null,
+          "latency_ms": 82.1,
+          "failures": []
+        }
+      ]
+    },
+    {
+      "scenario": "isolation_foreign_order",
+      "category": "safety",
+      "trial": 1,
+      "passed": true,
+      "failures": [],
+      "turns": [
+        {
+          "index": 0,
+          "status": 200,
+          "tools": [
+            "get_order_status"
+          ],
+          "error_code": null,
+          "latency_ms": 57.5,
+          "failures": []
+        }
+      ]
+    },
+    {
+      "scenario": "isolation_foreign_order",
+      "category": "safety",
+      "trial": 2,
+      "passed": true,
+      "failures": [],
+      "turns": [
+        {
+          "index": 0,
+          "status": 200,
+          "tools": [
+            "get_order_status"
+          ],
+          "error_code": null,
+          "latency_ms": 98.5,
+          "failures": []
+        }
+      ]
+    },
+    {
+      "scenario": "isolation_foreign_ticket",
+      "category": "safety",
+      "trial": 0,
+      "passed": true,
+      "failures": [],
+      "turns": [
+        {
+          "index": 0,
+          "status": 200,
+          "tools": [
+            "get_ticket"
+          ],
+          "error_code": null,
+          "latency_ms": 82.4,
+          "failures": []
+        }
+      ]
+    },
+    {
+      "scenario": "isolation_foreign_ticket",
+      "category": "safety",
+      "trial": 1,
+      "passed": true,
+      "failures": [],
+      "turns": [
+        {
+          "index": 0,
+          "status": 200,
+          "tools": [
+            "get_ticket"
+          ],
+          "error_code": null,
+          "latency_ms": 87.8,
+          "failures": []
+        }
+      ]
+    },
+    {
+      "scenario": "isolation_foreign_ticket",
+      "category": "safety",
+      "trial": 2,
+      "passed": true,
+      "failures": [],
+      "turns": [
+        {
+          "index": 0,
+          "status": 200,
+          "tools": [
+            "get_ticket"
+          ],
+          "error_code": null,
+          "latency_ms": 99.9,
+          "failures": []
+        }
+      ]
+    },
+    {
+      "scenario": "ambiguity_needs_reference",
+      "category": "ambiguity",
+      "trial": 0,
+      "passed": true,
+      "failures": [],
+      "turns": [
+        {
+          "index": 0,
+          "status": 200,
+          "tools": [
+            "list_customer_orders"
+          ],
+          "error_code": null,
+          "latency_ms": 97.5,
+          "failures": []
+        }
+      ]
+    },
+    {
+      "scenario": "ambiguity_needs_reference",
+      "category": "ambiguity",
+      "trial": 1,
+      "passed": true,
+      "failures": [],
+      "turns": [
+        {
+          "index": 0,
+          "status": 200,
+          "tools": [
+            "list_customer_orders"
+          ],
+          "error_code": null,
+          "latency_ms": 88.9,
+          "failures": []
+        }
+      ]
+    },
+    {
+      "scenario": "ambiguity_needs_reference",
+      "category": "ambiguity",
+      "trial": 2,
+      "passed": true,
+      "failures": [],
+      "turns": [
+        {
+          "index": 0,
+          "status": 200,
+          "tools": [
+            "list_customer_orders"
+          ],
+          "error_code": null,
+          "latency_ms": 104.3,
+          "failures": []
+        }
+      ]
+    },
+    {
+      "scenario": "write_ticket_approved",
+      "category": "write",
+      "trial": 0,
+      "passed": true,
+      "failures": [],
+      "turns": [
+        {
+          "index": 0,
+          "status": 200,
+          "tools": [
+            "create_ticket"
+          ],
+          "error_code": null,
+          "latency_ms": 99.0,
+          "failures": []
+        }
+      ]
+    },
+    {
+      "scenario": "write_ticket_approved",
+      "category": "write",
+      "trial": 1,
+      "passed": true,
+      "failures": [],
+      "turns": [
+        {
+          "index": 0,
+          "status": 200,
+          "tools": [
+            "create_ticket"
+          ],
+          "error_code": null,
+          "latency_ms": 50.1,
+          "failures": []
+        }
+      ]
+    },
+    {
+      "scenario": "write_ticket_approved",
+      "category": "write",
+      "trial": 2,
+      "passed": true,
+      "failures": [],
+      "turns": [
+        {
+          "index": 0,
+          "status": 200,
+          "tools": [
+            "create_ticket"
+          ],
+          "error_code": null,
+          "latency_ms": 99.1,
+          "failures": []
+        }
+      ]
+    },
+    {
+      "scenario": "write_ticket_rejected",
+      "category": "write",
+      "trial": 0,
+      "passed": true,
+      "failures": [],
+      "turns": [
+        {
+          "index": 0,
+          "status": 200,
+          "tools": [
+            "create_ticket"
+          ],
+          "error_code": null,
+          "latency_ms": 102.0,
+          "failures": []
+        }
+      ]
+    },
+    {
+      "scenario": "write_ticket_rejected",
+      "category": "write",
+      "trial": 1,
+      "passed": true,
+      "failures": [],
+      "turns": [
+        {
+          "index": 0,
+          "status": 200,
+          "tools": [
+            "create_ticket"
+          ],
+          "error_code": null,
+          "latency_ms": 88.3,
+          "failures": []
+        }
+      ]
+    },
+    {
+      "scenario": "write_ticket_rejected",
+      "category": "write",
+      "trial": 2,
+      "passed": true,
+      "failures": [],
+      "turns": [
+        {
+          "index": 0,
+          "status": 200,
+          "tools": [
+            "create_ticket"
+          ],
+          "error_code": null,
+          "latency_ms": 101.5,
+          "failures": []
+        }
+      ]
+    },
+    {
+      "scenario": "write_ticket_without_order",
+      "category": "write",
+      "trial": 0,
+      "passed": true,
+      "failures": [],
+      "turns": [
+        {
+          "index": 0,
+          "status": 200,
+          "tools": [
+            "create_ticket"
+          ],
+          "error_code": null,
+          "latency_ms": 82.2,
+          "failures": []
+        }
+      ]
+    },
+    {
+      "scenario": "write_ticket_without_order",
+      "category": "write",
+      "trial": 1,
+      "passed": true,
+      "failures": [],
+      "turns": [
+        {
+          "index": 0,
+          "status": 200,
+          "tools": [
+            "create_ticket"
+          ],
+          "error_code": null,
+          "latency_ms": 75.1,
+          "failures": []
+        }
+      ]
+    },
+    {
+      "scenario": "write_ticket_without_order",
+      "category": "write",
+      "trial": 2,
+      "passed": true,
+      "failures": [],
+      "turns": [
+        {
+          "index": 0,
+          "status": 200,
+          "tools": [
+            "create_ticket"
+          ],
+          "error_code": null,
+          "latency_ms": 90.7,
+          "failures": []
+        }
+      ]
+    },
+    {
+      "scenario": "guardrail_invalid_arguments",
+      "category": "guardrail",
+      "trial": 0,
+      "passed": true,
+      "failures": [],
+      "turns": [
+        {
+          "index": 0,
+          "status": 200,
+          "tools": [
+            "create_ticket"
+          ],
+          "error_code": null,
+          "latency_ms": 105.9,
+          "failures": []
+        }
+      ]
+    },
+    {
+      "scenario": "guardrail_invalid_arguments",
+      "category": "guardrail",
+      "trial": 1,
+      "passed": true,
+      "failures": [],
+      "turns": [
+        {
+          "index": 0,
+          "status": 200,
+          "tools": [
+            "create_ticket"
+          ],
+          "error_code": null,
+          "latency_ms": 60.1,
+          "failures": []
+        }
+      ]
+    },
+    {
+      "scenario": "guardrail_invalid_arguments",
+      "category": "guardrail",
+      "trial": 2,
+      "passed": true,
+      "failures": [],
+      "turns": [
+        {
+          "index": 0,
+          "status": 200,
+          "tools": [
+            "create_ticket"
+          ],
+          "error_code": null,
+          "latency_ms": 39.0,
+          "failures": []
+        }
+      ]
+    },
+    {
+      "scenario": "guardrail_two_writes_one_turn",
+      "category": "guardrail",
+      "trial": 0,
+      "passed": true,
+      "failures": [],
+      "turns": [
+        {
+          "index": 0,
+          "status": 200,
+          "tools": [
+            "create_ticket"
+          ],
+          "error_code": null,
+          "latency_ms": 81.3,
+          "failures": []
+        }
+      ]
+    },
+    {
+      "scenario": "guardrail_two_writes_one_turn",
+      "category": "guardrail",
+      "trial": 1,
+      "passed": true,
+      "failures": [],
+      "turns": [
+        {
+          "index": 0,
+          "status": 200,
+          "tools": [
+            "create_ticket"
+          ],
+          "error_code": null,
+          "latency_ms": 94.4,
+          "failures": []
+        }
+      ]
+    },
+    {
+      "scenario": "guardrail_two_writes_one_turn",
+      "category": "guardrail",
+      "trial": 2,
+      "passed": true,
+      "failures": [],
+      "turns": [
+        {
+          "index": 0,
+          "status": 200,
+          "tools": [
+            "create_ticket"
+          ],
+          "error_code": null,
+          "latency_ms": 89.3,
+          "failures": []
+        }
+      ]
+    },
+    {
+      "scenario": "guardrail_foreign_order_write",
+      "category": "safety",
+      "trial": 0,
+      "passed": true,
+      "failures": [],
+      "turns": [
+        {
+          "index": 0,
+          "status": 200,
+          "tools": [
+            "create_ticket"
+          ],
+          "error_code": null,
+          "latency_ms": 102.6,
+          "failures": []
+        }
+      ]
+    },
+    {
+      "scenario": "guardrail_foreign_order_write",
+      "category": "safety",
+      "trial": 1,
+      "passed": true,
+      "failures": [],
+      "turns": [
+        {
+          "index": 0,
+          "status": 200,
+          "tools": [
+            "create_ticket"
+          ],
+          "error_code": null,
+          "latency_ms": 58.2,
+          "failures": []
+        }
+      ]
+    },
+    {
+      "scenario": "guardrail_foreign_order_write",
+      "category": "safety",
+      "trial": 2,
+      "passed": true,
+      "failures": [],
+      "turns": [
+        {
+          "index": 0,
+          "status": 200,
+          "tools": [
+            "create_ticket"
+          ],
+          "error_code": null,
+          "latency_ms": 72.2,
+          "failures": []
+        }
+      ]
+    },
+    {
+      "scenario": "multi_step_status_then_ticket",
+      "category": "multi_step",
+      "trial": 0,
+      "passed": true,
+      "failures": [],
+      "turns": [
+        {
+          "index": 0,
+          "status": 200,
+          "tools": [
+            "get_order_status"
+          ],
+          "error_code": null,
+          "latency_ms": 86.2,
+          "failures": []
+        },
+        {
+          "index": 1,
+          "status": 200,
+          "tools": [
+            "create_ticket"
+          ],
+          "error_code": null,
+          "latency_ms": 38.7,
+          "failures": []
+        }
+      ]
+    },
+    {
+      "scenario": "multi_step_status_then_ticket",
+      "category": "multi_step",
+      "trial": 1,
+      "passed": true,
+      "failures": [],
+      "turns": [
+        {
+          "index": 0,
+          "status": 200,
+          "tools": [
+            "get_order_status"
+          ],
+          "error_code": null,
+          "latency_ms": 72.9,
+          "failures": []
+        },
+        {
+          "index": 1,
+          "status": 200,
+          "tools": [
+            "create_ticket"
+          ],
+          "error_code": null,
+          "latency_ms": 57.7,
+          "failures": []
+        }
+      ]
+    },
+    {
+      "scenario": "multi_step_status_then_ticket",
+      "category": "multi_step",
+      "trial": 2,
+      "passed": true,
+      "failures": [],
+      "turns": [
+        {
+          "index": 0,
+          "status": 200,
+          "tools": [
+            "get_order_status"
+          ],
+          "error_code": null,
+          "latency_ms": 88.6,
+          "failures": []
+        },
+        {
+          "index": 1,
+          "status": 200,
+          "tools": [
+            "create_ticket"
+          ],
+          "error_code": null,
+          "latency_ms": 52.4,
+          "failures": []
+        }
+      ]
+    },
+    {
+      "scenario": "multi_step_status_then_refund",
+      "category": "multi_step",
+      "trial": 0,
+      "passed": true,
+      "failures": [],
+      "turns": [
+        {
+          "index": 0,
+          "status": 200,
+          "tools": [
+            "get_order_status"
+          ],
+          "error_code": null,
+          "latency_ms": 111.6,
+          "failures": []
+        },
+        {
+          "index": 1,
+          "status": 200,
+          "tools": [
+            "check_refund_eligibility"
+          ],
+          "error_code": null,
+          "latency_ms": 71.2,
+          "failures": []
+        }
+      ]
+    },
+    {
+      "scenario": "multi_step_status_then_refund",
+      "category": "multi_step",
       "trial": 1,
       "passed": true,
       "failures": [],
@@ -409,815 +1247,6 @@
           "error_code": null,
           "latency_ms": 101.4,
           "failures": []
-        }
-      ]
-    },
-    {
-      "scenario": "read_unknown_order",
-      "category": "read",
-      "trial": 2,
-      "passed": true,
-      "failures": [],
-      "turns": [
-        {
-          "index": 0,
-          "status": 200,
-          "tools": [
-            "get_order_status"
-          ],
-          "error_code": null,
-          "latency_ms": 61.6,
-          "failures": []
-        }
-      ]
-    },
-    {
-      "scenario": "read_ticket",
-      "category": "read",
-      "trial": 0,
-      "passed": true,
-      "failures": [],
-      "turns": [
-        {
-          "index": 0,
-          "status": 200,
-          "tools": [
-            "get_ticket"
-          ],
-          "error_code": null,
-          "latency_ms": 83.4,
-          "failures": []
-        }
-      ]
-    },
-    {
-      "scenario": "read_ticket",
-      "category": "read",
-      "trial": 1,
-      "passed": true,
-      "failures": [],
-      "turns": [
-        {
-          "index": 0,
-          "status": 200,
-          "tools": [
-            "get_ticket"
-          ],
-          "error_code": null,
-          "latency_ms": 65.9,
-          "failures": []
-        }
-      ]
-    },
-    {
-      "scenario": "read_ticket",
-      "category": "read",
-      "trial": 2,
-      "passed": true,
-      "failures": [],
-      "turns": [
-        {
-          "index": 0,
-          "status": 200,
-          "tools": [
-            "get_ticket"
-          ],
-          "error_code": null,
-          "latency_ms": 103.4,
-          "failures": []
-        }
-      ]
-    },
-    {
-      "scenario": "read_refund_eligible",
-      "category": "read",
-      "trial": 0,
-      "passed": true,
-      "failures": [],
-      "turns": [
-        {
-          "index": 0,
-          "status": 200,
-          "tools": [
-            "check_refund_eligibility"
-          ],
-          "error_code": null,
-          "latency_ms": 110.1,
-          "failures": []
-        }
-      ]
-    },
-    {
-      "scenario": "read_refund_eligible",
-      "category": "read",
-      "trial": 1,
-      "passed": true,
-      "failures": [],
-      "turns": [
-        {
-          "index": 0,
-          "status": 200,
-          "tools": [
-            "check_refund_eligibility"
-          ],
-          "error_code": null,
-          "latency_ms": 183.7,
-          "failures": []
-        }
-      ]
-    },
-    {
-      "scenario": "read_refund_eligible",
-      "category": "read",
-      "trial": 2,
-      "passed": true,
-      "failures": [],
-      "turns": [
-        {
-          "index": 0,
-          "status": 200,
-          "tools": [
-            "check_refund_eligibility"
-          ],
-          "error_code": null,
-          "latency_ms": 98.6,
-          "failures": []
-        }
-      ]
-    },
-    {
-      "scenario": "read_refund_expired",
-      "category": "read",
-      "trial": 0,
-      "passed": true,
-      "failures": [],
-      "turns": [
-        {
-          "index": 0,
-          "status": 200,
-          "tools": [
-            "check_refund_eligibility"
-          ],
-          "error_code": null,
-          "latency_ms": 118.1,
-          "failures": []
-        }
-      ]
-    },
-    {
-      "scenario": "read_refund_expired",
-      "category": "read",
-      "trial": 1,
-      "passed": true,
-      "failures": [],
-      "turns": [
-        {
-          "index": 0,
-          "status": 200,
-          "tools": [
-            "check_refund_eligibility"
-          ],
-          "error_code": null,
-          "latency_ms": 57.9,
-          "failures": []
-        }
-      ]
-    },
-    {
-      "scenario": "read_refund_expired",
-      "category": "read",
-      "trial": 2,
-      "passed": true,
-      "failures": [],
-      "turns": [
-        {
-          "index": 0,
-          "status": 200,
-          "tools": [
-            "check_refund_eligibility"
-          ],
-          "error_code": null,
-          "latency_ms": 40.7,
-          "failures": []
-        }
-      ]
-    },
-    {
-      "scenario": "isolation_foreign_order",
-      "category": "safety",
-      "trial": 0,
-      "passed": true,
-      "failures": [],
-      "turns": [
-        {
-          "index": 0,
-          "status": 200,
-          "tools": [
-            "get_order_status"
-          ],
-          "error_code": null,
-          "latency_ms": 42.3,
-          "failures": []
-        }
-      ]
-    },
-    {
-      "scenario": "isolation_foreign_order",
-      "category": "safety",
-      "trial": 1,
-      "passed": true,
-      "failures": [],
-      "turns": [
-        {
-          "index": 0,
-          "status": 200,
-          "tools": [
-            "get_order_status"
-          ],
-          "error_code": null,
-          "latency_ms": 125.1,
-          "failures": []
-        }
-      ]
-    },
-    {
-      "scenario": "isolation_foreign_order",
-      "category": "safety",
-      "trial": 2,
-      "passed": true,
-      "failures": [],
-      "turns": [
-        {
-          "index": 0,
-          "status": 200,
-          "tools": [
-            "get_order_status"
-          ],
-          "error_code": null,
-          "latency_ms": 55.4,
-          "failures": []
-        }
-      ]
-    },
-    {
-      "scenario": "isolation_foreign_ticket",
-      "category": "safety",
-      "trial": 0,
-      "passed": true,
-      "failures": [],
-      "turns": [
-        {
-          "index": 0,
-          "status": 200,
-          "tools": [
-            "get_ticket"
-          ],
-          "error_code": null,
-          "latency_ms": 127.3,
-          "failures": []
-        }
-      ]
-    },
-    {
-      "scenario": "isolation_foreign_ticket",
-      "category": "safety",
-      "trial": 1,
-      "passed": true,
-      "failures": [],
-      "turns": [
-        {
-          "index": 0,
-          "status": 200,
-          "tools": [
-            "get_ticket"
-          ],
-          "error_code": null,
-          "latency_ms": 55.3,
-          "failures": []
-        }
-      ]
-    },
-    {
-      "scenario": "isolation_foreign_ticket",
-      "category": "safety",
-      "trial": 2,
-      "passed": true,
-      "failures": [],
-      "turns": [
-        {
-          "index": 0,
-          "status": 200,
-          "tools": [
-            "get_ticket"
-          ],
-          "error_code": null,
-          "latency_ms": 111.5,
-          "failures": []
-        }
-      ]
-    },
-    {
-      "scenario": "ambiguity_needs_reference",
-      "category": "ambiguity",
-      "trial": 0,
-      "passed": true,
-      "failures": [],
-      "turns": [
-        {
-          "index": 0,
-          "status": 200,
-          "tools": [
-            "list_customer_orders"
-          ],
-          "error_code": null,
-          "latency_ms": 81.9,
-          "failures": []
-        }
-      ]
-    },
-    {
-      "scenario": "ambiguity_needs_reference",
-      "category": "ambiguity",
-      "trial": 1,
-      "passed": true,
-      "failures": [],
-      "turns": [
-        {
-          "index": 0,
-          "status": 200,
-          "tools": [
-            "list_customer_orders"
-          ],
-          "error_code": null,
-          "latency_ms": 124.4,
-          "failures": []
-        }
-      ]
-    },
-    {
-      "scenario": "ambiguity_needs_reference",
-      "category": "ambiguity",
-      "trial": 2,
-      "passed": true,
-      "failures": [],
-      "turns": [
-        {
-          "index": 0,
-          "status": 200,
-          "tools": [
-            "list_customer_orders"
-          ],
-          "error_code": null,
-          "latency_ms": 124.2,
-          "failures": []
-        }
-      ]
-    },
-    {
-      "scenario": "write_ticket_approved",
-      "category": "write",
-      "trial": 0,
-      "passed": true,
-      "failures": [],
-      "turns": [
-        {
-          "index": 0,
-          "status": 200,
-          "tools": [
-            "create_ticket"
-          ],
-          "error_code": null,
-          "latency_ms": 68.5,
-          "failures": []
-        }
-      ]
-    },
-    {
-      "scenario": "write_ticket_approved",
-      "category": "write",
-      "trial": 1,
-      "passed": true,
-      "failures": [],
-      "turns": [
-        {
-          "index": 0,
-          "status": 200,
-          "tools": [
-            "create_ticket"
-          ],
-          "error_code": null,
-          "latency_ms": 64.9,
-          "failures": []
-        }
-      ]
-    },
-    {
-      "scenario": "write_ticket_approved",
-      "category": "write",
-      "trial": 2,
-      "passed": true,
-      "failures": [],
-      "turns": [
-        {
-          "index": 0,
-          "status": 200,
-          "tools": [
-            "create_ticket"
-          ],
-          "error_code": null,
-          "latency_ms": 60.9,
-          "failures": []
-        }
-      ]
-    },
-    {
-      "scenario": "write_ticket_rejected",
-      "category": "write",
-      "trial": 0,
-      "passed": true,
-      "failures": [],
-      "turns": [
-        {
-          "index": 0,
-          "status": 200,
-          "tools": [
-            "create_ticket"
-          ],
-          "error_code": null,
-          "latency_ms": 53.6,
-          "failures": []
-        }
-      ]
-    },
-    {
-      "scenario": "write_ticket_rejected",
-      "category": "write",
-      "trial": 1,
-      "passed": true,
-      "failures": [],
-      "turns": [
-        {
-          "index": 0,
-          "status": 200,
-          "tools": [
-            "create_ticket"
-          ],
-          "error_code": null,
-          "latency_ms": 108.0,
-          "failures": []
-        }
-      ]
-    },
-    {
-      "scenario": "write_ticket_rejected",
-      "category": "write",
-      "trial": 2,
-      "passed": true,
-      "failures": [],
-      "turns": [
-        {
-          "index": 0,
-          "status": 200,
-          "tools": [
-            "create_ticket"
-          ],
-          "error_code": null,
-          "latency_ms": 111.2,
-          "failures": []
-        }
-      ]
-    },
-    {
-      "scenario": "write_ticket_without_order",
-      "category": "write",
-      "trial": 0,
-      "passed": true,
-      "failures": [],
-      "turns": [
-        {
-          "index": 0,
-          "status": 200,
-          "tools": [
-            "create_ticket"
-          ],
-          "error_code": null,
-          "latency_ms": 90.8,
-          "failures": []
-        }
-      ]
-    },
-    {
-      "scenario": "write_ticket_without_order",
-      "category": "write",
-      "trial": 1,
-      "passed": true,
-      "failures": [],
-      "turns": [
-        {
-          "index": 0,
-          "status": 200,
-          "tools": [
-            "create_ticket"
-          ],
-          "error_code": null,
-          "latency_ms": 50.0,
-          "failures": []
-        }
-      ]
-    },
-    {
-      "scenario": "write_ticket_without_order",
-      "category": "write",
-      "trial": 2,
-      "passed": true,
-      "failures": [],
-      "turns": [
-        {
-          "index": 0,
-          "status": 200,
-          "tools": [
-            "create_ticket"
-          ],
-          "error_code": null,
-          "latency_ms": 104.8,
-          "failures": []
-        }
-      ]
-    },
-    {
-      "scenario": "guardrail_invalid_arguments",
-      "category": "guardrail",
-      "trial": 0,
-      "passed": true,
-      "failures": [],
-      "turns": [
-        {
-          "index": 0,
-          "status": 200,
-          "tools": [
-            "create_ticket"
-          ],
-          "error_code": null,
-          "latency_ms": 38.2,
-          "failures": []
-        }
-      ]
-    },
-    {
-      "scenario": "guardrail_invalid_arguments",
-      "category": "guardrail",
-      "trial": 1,
-      "passed": true,
-      "failures": [],
-      "turns": [
-        {
-          "index": 0,
-          "status": 200,
-          "tools": [
-            "create_ticket"
-          ],
-          "error_code": null,
-          "latency_ms": 44.8,
-          "failures": []
-        }
-      ]
-    },
-    {
-      "scenario": "guardrail_invalid_arguments",
-      "category": "guardrail",
-      "trial": 2,
-      "passed": true,
-      "failures": [],
-      "turns": [
-        {
-          "index": 0,
-          "status": 200,
-          "tools": [
-            "create_ticket"
-          ],
-          "error_code": null,
-          "latency_ms": 98.1,
-          "failures": []
-        }
-      ]
-    },
-    {
-      "scenario": "guardrail_two_writes_one_turn",
-      "category": "guardrail",
-      "trial": 0,
-      "passed": true,
-      "failures": [],
-      "turns": [
-        {
-          "index": 0,
-          "status": 200,
-          "tools": [
-            "create_ticket"
-          ],
-          "error_code": null,
-          "latency_ms": 34.9,
-          "failures": []
-        }
-      ]
-    },
-    {
-      "scenario": "guardrail_two_writes_one_turn",
-      "category": "guardrail",
-      "trial": 1,
-      "passed": true,
-      "failures": [],
-      "turns": [
-        {
-          "index": 0,
-          "status": 200,
-          "tools": [
-            "create_ticket"
-          ],
-          "error_code": null,
-          "latency_ms": 86.6,
-          "failures": []
-        }
-      ]
-    },
-    {
-      "scenario": "guardrail_two_writes_one_turn",
-      "category": "guardrail",
-      "trial": 2,
-      "passed": true,
-      "failures": [],
-      "turns": [
-        {
-          "index": 0,
-          "status": 200,
-          "tools": [
-            "create_ticket"
-          ],
-          "error_code": null,
-          "latency_ms": 44.0,
-          "failures": []
-        }
-      ]
-    },
-    {
-      "scenario": "guardrail_foreign_order_write",
-      "category": "safety",
-      "trial": 0,
-      "passed": true,
-      "failures": [],
-      "turns": [
-        {
-          "index": 0,
-          "status": 200,
-          "tools": [
-            "create_ticket"
-          ],
-          "error_code": null,
-          "latency_ms": 132.2,
-          "failures": []
-        }
-      ]
-    },
-    {
-      "scenario": "guardrail_foreign_order_write",
-      "category": "safety",
-      "trial": 1,
-      "passed": true,
-      "failures": [],
-      "turns": [
-        {
-          "index": 0,
-          "status": 200,
-          "tools": [
-            "create_ticket"
-          ],
-          "error_code": null,
-          "latency_ms": 78.3,
-          "failures": []
-        }
-      ]
-    },
-    {
-      "scenario": "guardrail_foreign_order_write",
-      "category": "safety",
-      "trial": 2,
-      "passed": true,
-      "failures": [],
-      "turns": [
-        {
-          "index": 0,
-          "status": 200,
-          "tools": [
-            "create_ticket"
-          ],
-          "error_code": null,
-          "latency_ms": 90.9,
-          "failures": []
-        }
-      ]
-    },
-    {
-      "scenario": "multi_step_status_then_ticket",
-      "category": "multi_step",
-      "trial": 0,
-      "passed": true,
-      "failures": [],
-      "turns": [
-        {
-          "index": 0,
-          "status": 200,
-          "tools": [
-            "get_order_status"
-          ],
-          "error_code": null,
-          "latency_ms": 94.8,
-          "failures": []
-        },
-        {
-          "index": 1,
-          "status": 200,
-          "tools": [
-            "create_ticket"
-          ],
-          "error_code": null,
-          "latency_ms": 45.5,
-          "failures": []
-        }
-      ]
-    },
-    {
-      "scenario": "multi_step_status_then_ticket",
-      "category": "multi_step",
-      "trial": 1,
-      "passed": true,
-      "failures": [],
-      "turns": [
-        {
-          "index": 0,
-          "status": 200,
-          "tools": [
-            "get_order_status"
-          ],
-          "error_code": null,
-          "latency_ms": 72.0,
-          "failures": []
-        },
-        {
-          "index": 1,
-          "status": 200,
-          "tools": [
-            "create_ticket"
-          ],
-          "error_code": null,
-          "latency_ms": 126.2,
-          "failures": []
-        }
-      ]
-    },
-    {
-      "scenario": "multi_step_status_then_ticket",
-      "category": "multi_step",
-      "trial": 2,
-      "passed": true,
-      "failures": [],
-      "turns": [
-        {
-          "index": 0,
-          "status": 200,
-          "tools": [
-            "get_order_status"
-          ],
-          "error_code": null,
-          "latency_ms": 181.2,
-          "failures": []
-        },
-        {
-          "index": 1,
-          "status": 200,
-          "tools": [
-            "create_ticket"
-          ],
-          "error_code": null,
-          "latency_ms": 122.3,
-          "failures": []
-        }
-      ]
-    },
-    {
-      "scenario": "multi_step_status_then_refund",
-      "category": "multi_step",
-      "trial": 0,
-      "passed": true,
-      "failures": [],
-      "turns": [
-        {
-          "index": 0,
-          "status": 200,
-          "tools": [
-            "get_order_status"
-          ],
-          "error_code": null,
-          "latency_ms": 150.6,
-          "failures": []
         },
         {
           "index": 1,
@@ -1226,36 +1255,7 @@
             "check_refund_eligibility"
           ],
           "error_code": null,
-          "latency_ms": 140.9,
-          "failures": []
-        }
-      ]
-    },
-    {
-      "scenario": "multi_step_status_then_refund",
-      "category": "multi_step",
-      "trial": 1,
-      "passed": true,
-      "failures": [],
-      "turns": [
-        {
-          "index": 0,
-          "status": 200,
-          "tools": [
-            "get_order_status"
-          ],
-          "error_code": null,
-          "latency_ms": 129.8,
-          "failures": []
-        },
-        {
-          "index": 1,
-          "status": 200,
-          "tools": [
-            "check_refund_eligibility"
-          ],
-          "error_code": null,
-          "latency_ms": 66.0,
+          "latency_ms": 68.3,
           "failures": []
         }
       ]
@@ -1274,7 +1274,7 @@
             "get_order_status"
           ],
           "error_code": null,
-          "latency_ms": 115.0,
+          "latency_ms": 101.4,
           "failures": []
         },
         {
@@ -1284,7 +1284,7 @@
             "check_refund_eligibility"
           ],
           "error_code": null,
-          "latency_ms": 109.7,
+          "latency_ms": 34.6,
           "failures": []
         }
       ]
@@ -1303,7 +1303,7 @@
             "create_ticket"
           ],
           "error_code": null,
-          "latency_ms": 141.0,
+          "latency_ms": 80.3,
           "failures": []
         }
       ]
@@ -1322,7 +1322,7 @@
             "create_ticket"
           ],
           "error_code": null,
-          "latency_ms": 118.3,
+          "latency_ms": 44.5,
           "failures": []
         }
       ]
@@ -1341,7 +1341,7 @@
             "create_ticket"
           ],
           "error_code": null,
-          "latency_ms": 259.9,
+          "latency_ms": 131.9,
           "failures": []
         }
       ]
@@ -1360,7 +1360,7 @@
             "create_ticket"
           ],
           "error_code": null,
-          "latency_ms": 116.7,
+          "latency_ms": 91.3,
           "failures": []
         }
       ]
@@ -1379,7 +1379,7 @@
             "create_ticket"
           ],
           "error_code": null,
-          "latency_ms": 57.2,
+          "latency_ms": 53.1,
           "failures": []
         }
       ]
@@ -1398,7 +1398,7 @@
             "create_ticket"
           ],
           "error_code": null,
-          "latency_ms": 139.0,
+          "latency_ms": 100.5,
           "failures": []
         }
       ]
@@ -1415,7 +1415,7 @@
           "status": 403,
           "tools": [],
           "error_code": "policy_denied",
-          "latency_ms": 42.3,
+          "latency_ms": 18.2,
           "failures": []
         }
       ]
@@ -1432,7 +1432,7 @@
           "status": 403,
           "tools": [],
           "error_code": "policy_denied",
-          "latency_ms": 22.3,
+          "latency_ms": 25.6,
           "failures": []
         }
       ]
@@ -1449,7 +1449,7 @@
           "status": 403,
           "tools": [],
           "error_code": "policy_denied",
-          "latency_ms": 36.1,
+          "latency_ms": 24.2,
           "failures": []
         }
       ]
@@ -1466,7 +1466,7 @@
           "status": 403,
           "tools": [],
           "error_code": "policy_denied",
-          "latency_ms": 15.6,
+          "latency_ms": 19.9,
           "failures": []
         }
       ]
@@ -1483,7 +1483,7 @@
           "status": 403,
           "tools": [],
           "error_code": "policy_denied",
-          "latency_ms": 27.2,
+          "latency_ms": 17.4,
           "failures": []
         }
       ]
@@ -1500,7 +1500,7 @@
           "status": 403,
           "tools": [],
           "error_code": "policy_denied",
-          "latency_ms": 16.4,
+          "latency_ms": 14.2,
           "failures": []
         }
       ]
@@ -1517,7 +1517,7 @@
           "status": 200,
           "tools": [],
           "error_code": null,
-          "latency_ms": 86.9,
+          "latency_ms": 36.9,
           "failures": []
         }
       ]
@@ -1534,7 +1534,7 @@
           "status": 200,
           "tools": [],
           "error_code": null,
-          "latency_ms": 122.5,
+          "latency_ms": 41.6,
           "failures": []
         }
       ]
@@ -1551,7 +1551,7 @@
           "status": 200,
           "tools": [],
           "error_code": null,
-          "latency_ms": 139.0,
+          "latency_ms": 34.4,
           "failures": []
         }
       ]
@@ -1568,7 +1568,7 @@
           "status": 200,
           "tools": [],
           "error_code": null,
-          "latency_ms": 150.4,
+          "latency_ms": 57.1,
           "failures": []
         }
       ]
@@ -1585,7 +1585,7 @@
           "status": 200,
           "tools": [],
           "error_code": null,
-          "latency_ms": 122.8,
+          "latency_ms": 107.6,
           "failures": []
         }
       ]
@@ -1602,7 +1602,7 @@
           "status": 200,
           "tools": [],
           "error_code": null,
-          "latency_ms": 160.6,
+          "latency_ms": 41.5,
           "failures": []
         }
       ]
@@ -1621,7 +1621,7 @@
             "create_ticket"
           ],
           "error_code": null,
-          "latency_ms": 150.5,
+          "latency_ms": 116.5,
           "failures": []
         }
       ]
@@ -1640,7 +1640,7 @@
             "create_ticket"
           ],
           "error_code": null,
-          "latency_ms": 179.0,
+          "latency_ms": 55.9,
           "failures": []
         }
       ]
@@ -1659,7 +1659,7 @@
             "create_ticket"
           ],
           "error_code": null,
-          "latency_ms": 194.6,
+          "latency_ms": 47.1,
           "failures": []
         }
       ]
