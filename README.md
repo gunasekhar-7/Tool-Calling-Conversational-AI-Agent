@@ -123,9 +123,12 @@ drawing a conclusion from a single run.
 
 ```bash
 python scripts/evaluate.py --trials 3            # offline, no key needed
-python scripts/evaluate.py --mode live --trials 3  # needs OPENAI_API_KEY + LLM_MODEL
+python scripts/evaluate.py --mode live --trials 3 --out evals/report/live  # needs OPENAI_API_KEY + LLM_MODEL
 python scripts/loadtest.py --sessions 20 --messages 5 --think-ms 200
 ```
+
+Live output goes to `evals/report/live/` so a provider run cannot overwrite the committed
+offline artifact; the two rows stay independently reproducible.
 
 Every report carries the commit, the scenario-file hash, the prompt version, the mode and the
 interval, and the harness stamps a dirty worktree in the report rather than letting a number
