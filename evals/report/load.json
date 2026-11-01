@@ -1,706 +1,706 @@
 {
   "sessions": 20,
   "messages": 5,
-  "wall_seconds": 2.54,
+  "wall_seconds": 3.489,
   "samples": [
     {
       "session": 0,
       "index": 0,
       "status": 200,
-      "latency_ms": 584.3,
+      "latency_ms": 851.8,
       "error": null
     },
     {
       "session": 0,
       "index": 1,
       "status": 200,
-      "latency_ms": 434.8,
+      "latency_ms": 712.1,
       "error": null
     },
     {
       "session": 0,
       "index": 2,
       "status": 200,
-      "latency_ms": 346.8,
+      "latency_ms": 502.9,
       "error": null
     },
     {
       "session": 0,
       "index": 3,
       "status": 200,
-      "latency_ms": 386.8,
+      "latency_ms": 600.5,
       "error": null
     },
     {
       "session": 0,
       "index": 4,
       "status": 200,
-      "latency_ms": 440.6,
+      "latency_ms": 403.4,
       "error": null
     },
     {
       "session": 1,
       "index": 0,
       "status": 200,
-      "latency_ms": 670.0,
+      "latency_ms": 712.8,
       "error": null
     },
     {
       "session": 1,
       "index": 1,
       "status": 200,
-      "latency_ms": 469.3,
+      "latency_ms": 612.5,
       "error": null
     },
     {
       "session": 1,
       "index": 2,
       "status": 200,
-      "latency_ms": 318.1,
+      "latency_ms": 465.2,
       "error": null
     },
     {
       "session": 1,
       "index": 3,
       "status": 200,
-      "latency_ms": 428.4,
+      "latency_ms": 470.2,
       "error": null
     },
     {
       "session": 1,
       "index": 4,
       "status": 200,
-      "latency_ms": 398.9,
+      "latency_ms": 517.0,
       "error": null
     },
     {
       "session": 2,
       "index": 0,
       "status": 200,
-      "latency_ms": 645.7,
+      "latency_ms": 715.5,
       "error": null
     },
     {
       "session": 2,
       "index": 1,
       "status": 200,
-      "latency_ms": 512.0,
+      "latency_ms": 619.9,
       "error": null
     },
     {
       "session": 2,
       "index": 2,
       "status": 200,
-      "latency_ms": 333.4,
+      "latency_ms": 462.0,
       "error": null
     },
     {
       "session": 2,
       "index": 3,
       "status": 200,
-      "latency_ms": 390.1,
+      "latency_ms": 509.4,
       "error": null
     },
     {
       "session": 2,
       "index": 4,
       "status": 200,
-      "latency_ms": 397.8,
+      "latency_ms": 488.2,
       "error": null
     },
     {
       "session": 3,
       "index": 0,
       "status": 200,
-      "latency_ms": 648.2,
+      "latency_ms": 831.0,
       "error": null
     },
     {
       "session": 3,
       "index": 1,
       "status": 200,
-      "latency_ms": 436.9,
+      "latency_ms": 708.0,
       "error": null
     },
     {
       "session": 3,
       "index": 2,
       "status": 200,
-      "latency_ms": 336.0,
+      "latency_ms": 483.4,
       "error": null
     },
     {
       "session": 3,
       "index": 3,
       "status": 200,
-      "latency_ms": 429.8,
+      "latency_ms": 484.5,
       "error": null
     },
     {
       "session": 3,
       "index": 4,
       "status": 200,
-      "latency_ms": 433.8,
+      "latency_ms": 539.1,
       "error": null
     },
     {
       "session": 4,
       "index": 0,
       "status": 200,
-      "latency_ms": 667.3,
+      "latency_ms": 726.2,
       "error": null
     },
     {
       "session": 4,
       "index": 1,
       "status": 200,
-      "latency_ms": 464.2,
+      "latency_ms": 644.4,
       "error": null
     },
     {
       "session": 4,
       "index": 2,
       "status": 200,
-      "latency_ms": 359.7,
+      "latency_ms": 513.5,
       "error": null
     },
     {
       "session": 4,
       "index": 3,
       "status": 200,
-      "latency_ms": 393.8,
+      "latency_ms": 509.5,
       "error": null
     },
     {
       "session": 4,
       "index": 4,
       "status": 200,
-      "latency_ms": 397.2,
+      "latency_ms": 598.1,
       "error": null
     },
     {
       "session": 5,
       "index": 0,
       "status": 200,
-      "latency_ms": 631.7,
+      "latency_ms": 907.4,
       "error": null
     },
     {
       "session": 5,
       "index": 1,
       "status": 200,
-      "latency_ms": 384.9,
+      "latency_ms": 672.2,
       "error": null
     },
     {
       "session": 5,
       "index": 2,
       "status": 200,
-      "latency_ms": 393.4,
+      "latency_ms": 530.3,
       "error": null
     },
     {
       "session": 5,
       "index": 3,
       "status": 200,
-      "latency_ms": 432.6,
+      "latency_ms": 629.4,
       "error": null
     },
     {
       "session": 5,
       "index": 4,
       "status": 200,
-      "latency_ms": 391.9,
+      "latency_ms": 365.2,
       "error": null
     },
     {
       "session": 6,
       "index": 0,
       "status": 200,
-      "latency_ms": 649.8,
+      "latency_ms": 983.2,
       "error": null
     },
     {
       "session": 6,
       "index": 1,
       "status": 200,
-      "latency_ms": 457.0,
+      "latency_ms": 597.8,
       "error": null
     },
     {
       "session": 6,
       "index": 2,
       "status": 200,
-      "latency_ms": 336.7,
+      "latency_ms": 536.5,
       "error": null
     },
     {
       "session": 6,
       "index": 3,
       "status": 200,
-      "latency_ms": 418.4,
+      "latency_ms": 635.7,
       "error": null
     },
     {
       "session": 6,
       "index": 4,
       "status": 200,
-      "latency_ms": 374.5,
+      "latency_ms": 407.9,
       "error": null
     },
     {
       "session": 7,
       "index": 0,
       "status": 200,
-      "latency_ms": 522.9,
+      "latency_ms": 1032.9,
       "error": null
     },
     {
       "session": 7,
       "index": 1,
       "status": 200,
-      "latency_ms": 439.8,
+      "latency_ms": 566.9,
       "error": null
     },
     {
       "session": 7,
       "index": 2,
       "status": 200,
-      "latency_ms": 327.0,
+      "latency_ms": 534.9,
       "error": null
     },
     {
       "session": 7,
       "index": 3,
       "status": 200,
-      "latency_ms": 286.2,
+      "latency_ms": 633.0,
       "error": null
     },
     {
       "session": 7,
       "index": 4,
       "status": 200,
-      "latency_ms": 488.3,
+      "latency_ms": 402.0,
       "error": null
     },
     {
       "session": 8,
       "index": 0,
       "status": 200,
-      "latency_ms": 560.9,
+      "latency_ms": 721.5,
       "error": null
     },
     {
       "session": 8,
       "index": 1,
       "status": 200,
-      "latency_ms": 428.6,
+      "latency_ms": 627.8,
       "error": null
     },
     {
       "session": 8,
       "index": 2,
       "status": 200,
-      "latency_ms": 368.8,
+      "latency_ms": 517.1,
       "error": null
     },
     {
       "session": 8,
       "index": 3,
       "status": 200,
-      "latency_ms": 414.7,
+      "latency_ms": 500.9,
       "error": null
     },
     {
       "session": 8,
       "index": 4,
       "status": 200,
-      "latency_ms": 391.7,
+      "latency_ms": 578.7,
       "error": null
     },
     {
       "session": 9,
       "index": 0,
       "status": 200,
-      "latency_ms": 468.3,
+      "latency_ms": 1071.4,
       "error": null
     },
     {
       "session": 9,
       "index": 1,
       "status": 200,
-      "latency_ms": 440.9,
+      "latency_ms": 513.8,
       "error": null
     },
     {
       "session": 9,
       "index": 2,
       "status": 200,
-      "latency_ms": 319.7,
+      "latency_ms": 534.8,
       "error": null
     },
     {
       "session": 9,
       "index": 3,
       "status": 200,
-      "latency_ms": 288.7,
+      "latency_ms": 640.6,
       "error": null
     },
     {
       "session": 9,
       "index": 4,
       "status": 200,
-      "latency_ms": 385.9,
+      "latency_ms": 407.9,
       "error": null
     },
     {
       "session": 10,
       "index": 0,
       "status": 200,
-      "latency_ms": 536.1,
+      "latency_ms": 949.6,
       "error": null
     },
     {
       "session": 10,
       "index": 1,
       "status": 200,
-      "latency_ms": 458.0,
+      "latency_ms": 620.5,
       "error": null
     },
     {
       "session": 10,
       "index": 2,
       "status": 200,
-      "latency_ms": 347.6,
+      "latency_ms": 536.6,
       "error": null
     },
     {
       "session": 10,
       "index": 3,
       "status": 200,
-      "latency_ms": 294.9,
+      "latency_ms": 627.0,
       "error": null
     },
     {
       "session": 10,
       "index": 4,
       "status": 200,
-      "latency_ms": 487.7,
+      "latency_ms": 366.3,
       "error": null
     },
     {
       "session": 11,
       "index": 0,
       "status": 200,
-      "latency_ms": 468.3,
+      "latency_ms": 1086.1,
       "error": null
     },
     {
       "session": 11,
       "index": 1,
       "status": 200,
-      "latency_ms": 472.1,
+      "latency_ms": 516.2,
       "error": null
     },
     {
       "session": 11,
       "index": 2,
       "status": 200,
-      "latency_ms": 321.2,
+      "latency_ms": 541.2,
       "error": null
     },
     {
       "session": 11,
       "index": 3,
       "status": 200,
-      "latency_ms": 265.2,
+      "latency_ms": 621.2,
       "error": null
     },
     {
       "session": 11,
       "index": 4,
       "status": 200,
-      "latency_ms": 377.7,
+      "latency_ms": 395.4,
       "error": null
     },
     {
       "session": 12,
       "index": 0,
       "status": 200,
-      "latency_ms": 468.8,
+      "latency_ms": 1059.5,
       "error": null
     },
     {
       "session": 12,
       "index": 1,
       "status": 200,
-      "latency_ms": 509.7,
+      "latency_ms": 527.6,
       "error": null
     },
     {
       "session": 12,
       "index": 2,
       "status": 200,
-      "latency_ms": 340.3,
+      "latency_ms": 538.0,
       "error": null
     },
     {
       "session": 12,
       "index": 3,
       "status": 200,
-      "latency_ms": 292.8,
+      "latency_ms": 637.2,
       "error": null
     },
     {
       "session": 12,
       "index": 4,
       "status": 200,
-      "latency_ms": 471.8,
+      "latency_ms": 394.3,
       "error": null
     },
     {
       "session": 13,
       "index": 0,
       "status": 200,
-      "latency_ms": 540.0,
+      "latency_ms": 699.6,
       "error": null
     },
     {
       "session": 13,
       "index": 1,
       "status": 200,
-      "latency_ms": 455.1,
+      "latency_ms": 634.2,
       "error": null
     },
     {
       "session": 13,
       "index": 2,
       "status": 200,
-      "latency_ms": 344.1,
+      "latency_ms": 510.9,
       "error": null
     },
     {
       "session": 13,
       "index": 3,
       "status": 200,
-      "latency_ms": 280.1,
+      "latency_ms": 500.7,
       "error": null
     },
     {
       "session": 13,
       "index": 4,
       "status": 200,
-      "latency_ms": 463.5,
+      "latency_ms": 605.5,
       "error": null
     },
     {
       "session": 14,
       "index": 0,
       "status": 200,
-      "latency_ms": 647.4,
+      "latency_ms": 710.6,
       "error": null
     },
     {
       "session": 14,
       "index": 1,
       "status": 200,
-      "latency_ms": 486.9,
+      "latency_ms": 650.0,
       "error": null
     },
     {
       "session": 14,
       "index": 2,
       "status": 200,
-      "latency_ms": 320.8,
+      "latency_ms": 509.4,
       "error": null
     },
     {
       "session": 14,
       "index": 3,
       "status": 200,
-      "latency_ms": 425.5,
+      "latency_ms": 515.0,
       "error": null
     },
     {
       "session": 14,
       "index": 4,
       "status": 200,
-      "latency_ms": 392.9,
+      "latency_ms": 585.8,
       "error": null
     },
     {
       "session": 15,
       "index": 0,
       "status": 200,
-      "latency_ms": 669.8,
+      "latency_ms": 698.4,
       "error": null
     },
     {
       "session": 15,
       "index": 1,
       "status": 200,
-      "latency_ms": 448.8,
+      "latency_ms": 634.1,
       "error": null
     },
     {
       "session": 15,
       "index": 2,
       "status": 200,
-      "latency_ms": 336.6,
+      "latency_ms": 517.0,
       "error": null
     },
     {
       "session": 15,
       "index": 3,
       "status": 200,
-      "latency_ms": 416.4,
+      "latency_ms": 512.5,
       "error": null
     },
     {
       "session": 15,
       "index": 4,
       "status": 200,
-      "latency_ms": 412.7,
+      "latency_ms": 607.4,
       "error": null
     },
     {
       "session": 16,
       "index": 0,
       "status": 200,
-      "latency_ms": 635.3,
+      "latency_ms": 729.9,
       "error": null
     },
     {
       "session": 16,
       "index": 1,
       "status": 200,
-      "latency_ms": 384.7,
+      "latency_ms": 626.4,
       "error": null
     },
     {
       "session": 16,
       "index": 2,
       "status": 200,
-      "latency_ms": 373.6,
+      "latency_ms": 522.5,
       "error": null
     },
     {
       "session": 16,
       "index": 3,
       "status": 200,
-      "latency_ms": 437.7,
+      "latency_ms": 511.0,
       "error": null
     },
     {
       "session": 16,
       "index": 4,
       "status": 200,
-      "latency_ms": 408.3,
+      "latency_ms": 604.3,
       "error": null
     },
     {
       "session": 17,
       "index": 0,
       "status": 200,
-      "latency_ms": 478.3,
+      "latency_ms": 714.8,
       "error": null
     },
     {
       "session": 17,
       "index": 1,
       "status": 200,
-      "latency_ms": 433.9,
+      "latency_ms": 617.4,
       "error": null
     },
     {
       "session": 17,
       "index": 2,
       "status": 200,
-      "latency_ms": 311.6,
+      "latency_ms": 483.6,
       "error": null
     },
     {
       "session": 17,
       "index": 3,
       "status": 200,
-      "latency_ms": 293.9,
+      "latency_ms": 488.0,
       "error": null
     },
     {
       "session": 17,
       "index": 4,
       "status": 200,
-      "latency_ms": 383.9,
+      "latency_ms": 488.5,
       "error": null
     },
     {
       "session": 18,
       "index": 0,
       "status": 200,
-      "latency_ms": 461.2,
+      "latency_ms": 722.7,
       "error": null
     },
     {
       "session": 18,
       "index": 1,
       "status": 200,
-      "latency_ms": 512.3,
+      "latency_ms": 637.0,
       "error": null
     },
     {
       "session": 18,
       "index": 2,
       "status": 200,
-      "latency_ms": 328.1,
+      "latency_ms": 514.6,
       "error": null
     },
     {
       "session": 18,
       "index": 3,
       "status": 200,
-      "latency_ms": 285.9,
+      "latency_ms": 505.9,
       "error": null
     },
     {
       "session": 18,
       "index": 4,
       "status": 200,
-      "latency_ms": 487.5,
+      "latency_ms": 604.8,
       "error": null
     },
     {
       "session": 19,
       "index": 0,
       "status": 200,
-      "latency_ms": 647.2,
+      "latency_ms": 1065.8,
       "error": null
     },
     {
       "session": 19,
       "index": 1,
       "status": 200,
-      "latency_ms": 376.2,
+      "latency_ms": 535.0,
       "error": null
     },
     {
       "session": 19,
       "index": 2,
       "status": 200,
-      "latency_ms": 389.4,
+      "latency_ms": 543.6,
       "error": null
     },
     {
       "session": 19,
       "index": 3,
       "status": 200,
-      "latency_ms": 437.2,
+      "latency_ms": 630.8,
       "error": null
     },
     {
       "session": 19,
       "index": 4,
       "status": 200,
-      "latency_ms": 395.5,
+      "latency_ms": 396.6,
       "error": null
     }
   ]
