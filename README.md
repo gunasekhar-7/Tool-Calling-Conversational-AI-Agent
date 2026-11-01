@@ -95,7 +95,7 @@ Committed report: [`evals/report/report.md`](evals/report/report.md).
 | --- | --- | --- | --- | --- |
 | offline (pipeline) | Task success rate `pass^1` | 100.0 % | 95.1 % – 100.0 % | 75 |
 | offline (pipeline) | `pass^3` (all trials succeeded) | 100.0 % | 86.7 % – 100.0 % | 25 |
-| offline (pipeline) | Turn latency p50 / p95 | 135.2 ms / 209.1 ms | — | 75 |
+| offline (pipeline) | Turn latency p50 / p95 | 101.4 ms / 181.2 ms | — | 75 |
 | live (model) | Task success rate | not run — no provider key configured here | — | 0 |
 
 A trial only passes when **all** of these hold: the expected HTTP/error outcome occurred, the
@@ -115,14 +115,16 @@ rows changed.
 Latency under concurrency is a separate artefact: [`evals/report/load.md`](evals/report/load.md)
 records one client alone versus 20 concurrent sessions with a 200 ms simulated provider wait, so
 the provider is not the bottleneck being measured. The wait is a synthetic delay, not a model
-quality signal; without it the scripted stub is CPU-bound and hides concurrency. The harness is
-one process on one laptop: p50 moves by roughly ±30% between runs, so read the error rate and the
-shape, not the millisecond. Repeat the command before drawing a conclusion from a single run.
+quality signal; without it the scripted stub is CPU-bound and hides concurrency. The committed
+run is 20 sessions × 5 messages: 100 requests, 0 errors, p50 418 ms, p95 647 ms. The harness is
+one process on one laptop, and p50 has moved between roughly 400 ms and 800 ms across identical
+runs, so read the error rate and the shape, not the millisecond. Repeat the command before
+drawing a conclusion from a single run.
 
 ```bash
 python scripts/evaluate.py --trials 3            # offline, no key needed
 python scripts/evaluate.py --mode live --trials 3  # needs OPENAI_API_KEY + LLM_MODEL
-python scripts/loadtest.py --sessions 20 --messages 3 --think-ms 200
+python scripts/loadtest.py --sessions 20 --messages 5 --think-ms 200
 ```
 
 Every report carries the commit, the scenario-file hash, the prompt version, the mode and the
